@@ -170,7 +170,6 @@ async function deleteExpiredEvents() {
 // Schedule a task to delete expired events periodically (e.g., once per day)
 setInterval(deleteExpiredEvents, 24 * 60 * 60 * 1000); // Run every 24 hours
 
-
 //nightClubs
 
 // Route to get all nigthClubs
@@ -178,11 +177,11 @@ app.get('/nightclubs', async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query('SELECT * FROM nightclubs');
-    const events = result.rows;
+    const nightclub = result.rows;
     client.release();
-    res.json(events);
+    res.json(nightclub);
   } catch (error) {
-    console.error('Error fetching events:', error);
+    console.error('Error fetching nightclub:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
