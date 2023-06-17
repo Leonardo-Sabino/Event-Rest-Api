@@ -177,26 +177,40 @@ app.post("/events", async (req, res) => {
 });
 
 //To verify the event and change the state
-
-cron.schedule("*/30 * * * *", () => {
-  //cron to run the task every 30 minutes
-  updateEventState();
-});
-
-// Função para atualizar o estado dos eventos
-function updateEventState() {
+async function updateEventStates() {
   const currentDate = new Date();
 
-  events.forEach((event) => {
-    const eventDate = new Date(event.eventdate);
+  try {
+    const client = await pool.connect();
 
-    if (eventDate < currentDate) {
-      event.state = "desativado";
-    }
-  });
+    // Consulta para buscar os eventos com data passada e estado "ativo"
+    const query = `
+      UPDATE events
+      SET state = 'desativado'
+      WHERE eventdate < $1 AND state = 'ativo'
+      RETURNING *
+    `;
+    const values = [currentDate];
 
-  // Aqui salvar as atualizações no banco de dados
+    const result = await client.query(query, values);
+    const updatedEvents = result.rows;
+
+    // Aqui você pode tratar os eventos atualizados conforme necessário
+
+    client.release();
+  } catch (error) {
+    console.error('Erro ao atualizar os eventos:', error);
+  }
 }
+
+//// Agendar a execução da função a cada 24 horas
+setInterval(updateEventStates, 24 * 60 * 60 * 1000);
+
+// // Para agendar a execução da função a cada 30 minutos
+// cron.schedule('*/30 * * * *', () => {
+//   updateEventStates();
+// });
+
 // Route to delete an event by ID
 app.delete("/events/:id", async (req, res) => {
   const eventId = req.params.id;
