@@ -183,7 +183,7 @@ async function updateEventStates() {
   try {
     const client = await pool.connect();
 
-    // Consulta para buscar os eventos com data passada e estado "ativo"
+    // Query to fetch events with past date and "active" status
     const query = `
       UPDATE events
       SET state = 'desativado'
@@ -195,19 +195,19 @@ async function updateEventStates() {
     const result = await client.query(query, values);
     const updatedEvents = result.rows;
 
-    // Aqui você pode tratar os eventos atualizados conforme necessário
+    //tratar os eventos atualizados conforme necessário
 
     client.release();
   } catch (error) {
-    console.error('Erro ao atualizar os eventos:', error);
+    console.error("Erro ao atualizar os eventos:", error);
   }
 }
 
-//// Agendar a execução da função a cada 24 horas
+// To schedule the function to run every 24 hours
 setInterval(updateEventStates, 24 * 60 * 60 * 1000);
 
-// // Para agendar a execução da função a cada 30 minutos
-// cron.schedule('*/30 * * * *', () => {
+// To schedule the function to run every 30 minuts
+// cron.schedule("*/30 * * * *", () => {
 //   updateEventStates();
 // });
 
