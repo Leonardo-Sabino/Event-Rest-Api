@@ -313,6 +313,21 @@ app.post("/nightclubs", async (req, res) => {
   }
 });
 
+// for the users comments
+
+let comments = [];
+//get method
+app.get("/comments", async (req, res) => {
+  res.json(comments);
+});
+
+//post method
+app.post("/comments", (req, res) => {
+  const newComment = req.body;
+  comments.push(newComment);
+  res.status(201).json(newComment);
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
