@@ -313,9 +313,62 @@ app.post("/nightclubs", async (req, res) => {
   }
 });
 
-// for the users comments
+//for users
+app.get("/users", async (req, res) => {
+  try {
+    const query = "SELECT * FROM users";
+    const result = await pool.query(query);
 
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving users." });
+  }
+});
+
+//post method
+app.post("/signup", async (req, res) => {
+  const newUser = {
+    username: req.body.username,
+    email: req.body.email,
+    password: req.body.password,
+  };
+
+  try {
+    const client = await pool.connect();
+
+    // Checks if the user already exists in the database
+    const userExists = await client.query(
+      "SELECT * FROM users WHERE username = $1",
+      [newUser.username]
+    );
+
+    if (userExists.rows.length > 0) {
+      // if username already exists
+      client.release();
+      return res
+        .status(400)
+        .json({ error: "Esse nome de usuário já está em uso." });
+    }
+
+    // Insert the new user into the database
+    await client.query(
+      "INSERT INTO users (username,email,password) VALUES ($1, $2, $3)",
+      [newUser.username, newUser.email, newUser.password]
+    );
+
+    client.release();
+
+    res.json({ message: "User added sucessfully!", user: newUser });
+  } catch (error) {
+    console.error("Error adding user:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+//for the users comments
 let comments = [];
+
 //get method
 app.get("/comments", async (req, res) => {
   res.json(comments);
