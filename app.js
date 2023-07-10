@@ -52,7 +52,7 @@ app.get("/events/:id", async (req, res) => {
   }
 });
 
-// Route to update an event by ID
+// Route to update an event by ID (getting error)
 app.put("/events/:id", async (req, res) => {
   const eventId = req.params.id;
   const updatedEvent = req.body;
@@ -366,19 +366,44 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-//for the users comments
-let comments = [];
+// for the comments
 
-//get method
+// GET method
 app.get("/comments", async (req, res) => {
-  res.json(comments);
+  try {
+    const client = await pool.connect();
+    const result = await client.query("SELECT * FROM comments");
+    const comments = result.rows;
+    client.release();
+    res.json(comments);
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
-//post method
-app.post("/comments", (req, res) => {
-  const newComment = req.body;
-  comments.push(newComment);
-  res.status(201).json(newComment);
+app.post("/comments", async (req, res) => {
+  const { userId, eventId, username, eventName, comment } = req.body;
+
+  try {
+    const client = await pool.connect();
+
+    // to Save the comment to the database
+    const commentResult = await client.query(
+      "INSERT INTO comments (userId, eventId, username, eventName, comment, createdAt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [userId, eventId, username, eventName, comment, new Date()]
+    );
+
+    const savedComment = commentResult.rows[0];
+
+    client.release();
+
+    // Submit the response with the new comment
+    res.status(201).json(savedComment);
+  } catch (error) {
+    console.error("Error adding comment:", error); //show to user the error, add it later front end.
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 app.listen(port, () => {
