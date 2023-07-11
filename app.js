@@ -382,6 +382,29 @@ app.get("/comments", async (req, res) => {
   }
 });
 
+// get event comements by id
+app.get("/comments/:eventId", async (req, res) => {
+  const eventId = req.params.eventId;
+
+  try {
+    const client = await pool.connect();
+
+    // Obtenha os comentários relacionados ao ID do evento fornecido
+    const comments = await client.query(
+      "SELECT * FROM comments WHERE eventid = $1",
+      [eventId]
+    );
+
+    client.release();
+
+    res.status(200).json(comments.rows);
+  } catch (error) {
+    console.error("Error retrieving comments:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// to post a comment
 app.post("/comments", async (req, res) => {
   const { userId, eventId, username, eventName, comment } = req.body;
 
@@ -402,6 +425,38 @@ app.post("/comments", async (req, res) => {
     res.status(201).json(savedComment);
   } catch (error) {
     console.error("Error adding comment:", error); //show to user the error, add it later front end.
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+//to delete a comment
+app.delete("/comments/:commentId", async (req, res) => {
+  const commentId = req.params.commentId;
+  const userId = req.body.userId; // ID do usuário passado no corpo da solicitação
+
+  try {
+    const client = await pool.connect();
+
+    // Verifique se o comentário existe e se o usuário é o autor do comentário
+    const commentExists = await client.query(
+      "SELECT * FROM comments WHERE id = $1 AND userId = $2",
+      [commentId, userId]
+    );
+
+    if (commentExists.rows.length === 0) {
+      // Comentário não encontrado ou usuário não é o autor
+      client.release();
+      return res.status(404).json({ error: "Comentário não encontrado" });
+    }
+
+    // Exclua o comentário
+    await client.query("DELETE FROM comments WHERE id = $1", [commentId]);
+
+    client.release();
+
+    res.status(200).json({ message: "Comentário excluído com sucesso" });
+  } catch (error) {
+    console.error("Error deleting comment:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
