@@ -143,13 +143,14 @@ app.post("/events", async (req, res) => {
     rating: req.body.rating,
     reviews: req.body.reviews,
     price: req.body.price,
+    userId: req.body.userId,
     state: "pendente",
   };
 
   try {
     const client = await pool.connect();
     await client.query(
-      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId, state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
       [
         newEvent.id,
         newEvent.longitude,
@@ -163,6 +164,7 @@ app.post("/events", async (req, res) => {
         newEvent.rating,
         newEvent.reviews,
         newEvent.price,
+        newEvent.userId,
         newEvent.state,
       ]
     );
@@ -212,22 +214,31 @@ setInterval(updateEventStates, 24 * 60 * 60 * 1000);
 // });
 
 // Route to delete an event by ID
-app.delete("/events/:id", async (req, res) => {
-  const eventId = req.params.id;
+app.delete("/events/:eventId", async (req, res) => {
+  const eventId = req.params.eventId;
+  const userId = req.body.userId; // ID do usuário passado no corpo da solicitação
 
   try {
     const client = await pool.connect();
-    const result = await client.query("DELETE FROM events WHERE id = $1", [
-      eventId,
-    ]);
 
-    if (result.rowCount === 1) {
-      res.json({ message: "Event deleted successfully!" });
-    } else {
-      res.status(404).json({ error: "Event not found" });
+    // Check if the comment exists and if the user is the author of the comment
+    const EventExists = await client.query(
+      "SELECT * FROM events WHERE id = $1 AND userId = $2",
+      [eventId, userId]
+    );
+
+    if (EventExists.rows.length === 0) {
+      // event not found or user not posting
+      client.release();
+      return res.status(404).json({ error: "Evento não encontrado" });
     }
 
+    // To delete the event
+    await client.query("DELETE FROM events WHERE id = $1", [eventId]);
+
     client.release();
+
+    res.status(200).json({ message: "Evento excluído com sucesso" });
   } catch (error) {
     console.error("Error deleting event:", error);
     res.status(500).json({ error: "Internal server error" });
