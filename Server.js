@@ -53,14 +53,14 @@ app.get("/events/:id", async (req, res) => {
 });
 
 // Route to update an event by ID (getting error)
-app.put("/events/:id", async (req, res) => {
-  const eventId = req.params.id;
+app.put("/events/:eventId", async (req, res) => {
+  const eventId = req.params.eventId;
   const updatedEvent = req.body;
 
   try {
     const client = await pool.connect();
     const result = await client.query(
-      "UPDATE events SET longitude = $2, latitude = $3, eventname = $4, eventdescription = $5, eventphotograph = $6, starttime = $7, endtime = $8, eventdate = $9, rating = 10$, reviews = 11$, price = 12$ WHERE id = $1",
+      "UPDATE events SET longitude = $2, latitude = $3, eventname = $4, eventdescription = $5, eventphotograph = $6, starttime = $7, endtime = $8, eventdate = $9, price = $10 WHERE id = $1",
       [
         eventId,
         updatedEvent.longitude,
@@ -71,8 +71,6 @@ app.put("/events/:id", async (req, res) => {
         updatedEvent.starttime,
         updatedEvent.endtime,
         updatedEvent.eventdate,
-        updatedEvent.rating,
-        updatedEvent.reviews,
         updatedEvent.price,
       ]
     );
