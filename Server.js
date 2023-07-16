@@ -142,13 +142,14 @@ app.post("/events", async (req, res) => {
     reviews: req.body.reviews,
     price: req.body.price,
     userId: req.body.userId,
+    userName: req.body.userName,
     state: "pendente",
   };
 
   try {
     const client = await pool.connect();
     await client.query(
-      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId, state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId,userName, state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
       [
         newEvent.id,
         newEvent.longitude,
@@ -163,6 +164,7 @@ app.post("/events", async (req, res) => {
         newEvent.reviews,
         newEvent.price,
         newEvent.userId,
+        newEvent.userName,
         newEvent.state,
       ]
     );
