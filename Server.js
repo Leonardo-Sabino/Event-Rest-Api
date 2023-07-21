@@ -362,15 +362,22 @@ app.post("/signup", async (req, res) => {
         .json({ error: "Esse nome de usuário já está em uso." });
     }
 
-    // Insert the new user into the database
+    // Generate a random token for the new user using uuid
+    const token = uuidv4();
+
+    // Insert the new user into the database with the generated token
     await client.query(
-      "INSERT INTO users (username,email,password) VALUES ($1, $2, $3)",
-      [newUser.username, newUser.email, newUser.password]
+      "INSERT INTO users (username,email,password,token) VALUES ($1, $2, $3, $4)",
+      [newUser.username, newUser.email, newUser.password, token]
     );
 
     client.release();
 
-    res.json({ message: "User added sucessfully!", user: newUser });
+    // Return the token along with the user information
+    res.json({
+      message: "User added successfully!",
+      user: { ...newUser, token },
+    });
   } catch (error) {
     console.error("Error adding user:", error);
     res.status(500).json({ error: "Internal server error" });
