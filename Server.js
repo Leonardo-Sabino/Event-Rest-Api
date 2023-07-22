@@ -384,6 +384,29 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+//put method to update the user info
+app.put("/users/:userId", async (req, res) => {
+  let userId = req.params.userId;
+  const updatedUser = req.body;
+
+  try {
+    const client = await pool.connect();
+    const result = await client.query(
+      "UPDATE users SET username = $2, email = $3, password = $4 WHERE id = $1",
+      [userId, updatedUser.username, updatedUser.email, updatedUser.password]
+    );
+    if (result.rowCount === 1) {
+      res.json({ message: "User updated successfully!" });
+    } else {
+      res.status(404).json({ message: "User not found!" });
+    }
+    client.release();
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ message: "Internal error occurred!" });
+  }
+});
+
 // for the comments
 
 // GET method
