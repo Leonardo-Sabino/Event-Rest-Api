@@ -365,10 +365,14 @@ app.post("/signup", async (req, res) => {
     // Generate a random token for the new user using uuid
     const token = uuidv4();
 
+    // set user default image
+    const userimage =
+      "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png";
+
     // Insert the new user into the database with the generated token
     await client.query(
-      "INSERT INTO users (username,email,password,token) VALUES ($1, $2, $3, $4)",
-      [newUser.username, newUser.email, newUser.password, token]
+      "INSERT INTO users (username,email,password,userimage,token) VALUES ($1, $2, $3, $4,$5)",
+      [newUser.username, newUser.email, newUser.password, userimage, token]
     );
 
     client.release();
@@ -376,7 +380,7 @@ app.post("/signup", async (req, res) => {
     // Return the token along with the user information
     res.json({
       message: "User added successfully!",
-      user: { ...newUser, token },
+      user: { ...newUser, userimage, token },
     });
   } catch (error) {
     console.error("Error adding user:", error);
@@ -392,8 +396,14 @@ app.put("/users/:userId", async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query(
-      "UPDATE users SET username = $2, email = $3, password = $4 WHERE id = $1",
-      [userId, updatedUser.username, updatedUser.email, updatedUser.password]
+      "UPDATE users SET username = $2, email = $3, password = $4, userimage = $5 WHERE id = $1",
+      [
+        userId,
+        updatedUser.username,
+        updatedUser.email,
+        updatedUser.password,
+        updatedUser.userimage,
+      ]
     );
     if (result.rowCount === 1) {
       res.json({ message: "User updated successfully!" });
@@ -490,7 +500,7 @@ app.delete("/comments/:commentId", async (req, res) => {
       return res.status(404).json({ error: "Comentário não encontrado" });
     }
 
-    // Exclua o comentário
+    // Excluding the comentary
     await client.query("DELETE FROM comments WHERE id = $1", [commentId]);
 
     client.release();
