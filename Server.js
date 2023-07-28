@@ -337,16 +337,31 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// images based on the gender selected
+const genderImages = {
+  masculino:
+    "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png",
+  feminino:
+    "https://w7.pngwing.com/pngs/129/292/png-transparent-female-avatar-girl-face-woman-user-flat-classy-users-icon.png",
+  outro: "https://img.freepik.com/free-icon/user_318-563642.jpg?w=360",
+};
+
 //post method
 app.post("/signup", async (req, res) => {
   const newUser = {
     username: req.body.username,
     email: req.body.email,
     password: req.body.password,
+    gender: req.body.gender,
   };
 
   try {
     const client = await pool.connect();
+
+    // // set user default image based on the gender picked
+    const userimage =
+      genderImages[newUser.gender] ||
+      "https://img.freepik.com/free-icon/user_318-563642.jpg?w=360";
 
     // Checks if the user already exists in the database
     const userExists = await client.query(
@@ -365,14 +380,20 @@ app.post("/signup", async (req, res) => {
     // Generate a random token for the new user using uuid
     const token = uuidv4();
 
-    // set user default image
-    const userimage =
-      "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png";
+    // const userimage =
+    //   "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png";
 
     // Insert the new user into the database with the generated token
     await client.query(
-      "INSERT INTO users (username,email,password,userimage,token) VALUES ($1, $2, $3, $4,$5)",
-      [newUser.username, newUser.email, newUser.password, userimage, token]
+      "INSERT INTO users (username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6)",
+      [
+        newUser.username,
+        newUser.email,
+        newUser.password,
+        newUser.gender,
+        userimage,
+        token,
+      ]
     );
 
     client.release();
