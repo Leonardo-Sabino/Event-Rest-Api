@@ -380,9 +380,6 @@ app.post("/signup", async (req, res) => {
     // Generate a random token for the new user using uuid
     const token = uuidv4();
 
-    // const userimage =
-    //   "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png";
-
     // Insert the new user into the database with the generated token
     await client.query(
       "INSERT INTO users (username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6)",
