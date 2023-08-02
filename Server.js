@@ -511,7 +511,7 @@ app.post("/tokenDevice/:userId", async (req, res) => {
 
 //notification on comment
 // Função para enviar notificação push usando o Expo
-const sendPushNotification = async (expoPushToken, body) => {
+const sendPushNotification = async (expoPushToken, body, title) => {
   let expo = new Expo();
   let messages = [];
   // Verificar se o ExpoPushToken é válido
@@ -525,7 +525,8 @@ const sendPushNotification = async (expoPushToken, body) => {
     to: expoPushToken,
     sound: "default",
     body: body,
-    data: { body }, // Pode adicionar mais dados que desejar
+    data: { body },
+    title: title,
   });
 
   // Enviar notificações
@@ -558,7 +559,7 @@ app.post("/comments", async (req, res) => {
 
     const savedComment = commentResult.rows[0];
 
-    // Obter os detalhes do evento associado ao eventId para obter o creatorUserId
+    // Obter os detalhes do evento associado ao eventId para obter o id do user que criou o evento
     const eventResult = await client.query(
       "SELECT userid FROM events WHERE id = $1",
       [eventId]
@@ -569,17 +570,20 @@ app.post("/comments", async (req, res) => {
     // Obter os detalhes do token associado ao userId para enviar a notificação
     const tokenResult = await client.query(
       "SELECT tokendevice FROM users WHERE id = $1",
-      [userId]
+      [eventDetails.userid]
     );
 
     const tokenDetails = tokenResult.rows[0];
 
     // Enviar notificação se o usuário que comentou no evento for diferente do creatorUserId
-    if (userId !== eventDetails.userid && tokenDetails.tokendevice !== null) {
+    if (userId !== eventDetails.userid && tokenDetails !== null) {
       const message = `${username} comentou no seu evento ${eventName}: "${comment}"`;
+      const title = "Novo comentário";
+      console.log("Message:", message);
 
       // Enviar a notificação push usando o Expo
-      sendPushNotification(tokenDetails.tokendevice, message);
+      sendPushNotification(tokenDetails.tokendevice, message, title);
+      console.log("notificação enviada!");
     }
 
     client.release();
