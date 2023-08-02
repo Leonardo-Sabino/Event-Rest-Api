@@ -5,6 +5,7 @@ const { Pool } = require("pg");
 const cron = require("node-cron");
 const app = express();
 const port = 3000;
+const { Expo } = require("expo-server-sdk");
 
 app.use(bodyParser.json());
 
@@ -473,6 +474,75 @@ app.get("/comments/:eventId", async (req, res) => {
   }
 });
 
+//get token from user's device for the notification
+app.post("/tokenDevice/:userId", async (req, res) => {
+  const tokenId = req.body.tokenId;
+  const userId = req.params.userId;
+
+  try {
+    const client = await pool.connect();
+
+    // Verifica se o usuário existe antes de atualizar o token
+    const userExists = await client.query("SELECT * FROM users WHERE id = $1", [
+      userId,
+    ]);
+
+    if (userExists.rows.length === 0) {
+      // Usuário não encontrado
+      client.release();
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    // Atualiza o tokenDevice do usuário com o novo valor do token
+    await client.query("UPDATE users SET tokendevice = $1 WHERE id = $2", [
+      tokenId,
+      userId,
+    ]);
+
+    client.release();
+
+    // Retorna a resposta com o token atualizado (opcional)
+    res.status(200).json({ message: "Token atualizado com sucesso" });
+  } catch (error) {
+    console.error("Error updating device token:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+//notification on comment
+// Função para enviar notificação push usando o Expo
+const sendPushNotification = async (expoPushToken, body) => {
+  let expo = new Expo();
+  let messages = [];
+  // Verificar se o ExpoPushToken é válido
+  if (!Expo.isExpoPushToken(expoPushToken)) {
+    console.error("ExpoPushToken inválido:", expoPushToken);
+    return;
+  }
+
+  // Criar mensagem para enviar a notificação
+  messages.push({
+    to: expoPushToken,
+    sound: "default",
+    body: body,
+    data: { body }, // Pode adicionar mais dados que desejar
+  });
+
+  // Enviar notificações
+  let chunks = expo.chunkPushNotifications(messages);
+  let tickets = [];
+  (async () => {
+    for (let chunk of chunks) {
+      try {
+        let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
+      } catch (error) {
+        console.error("Erro ao enviar notificação:", error);
+      }
+    }
+  })();
+};
+
 // to post a comment
 app.post("/comments", async (req, res) => {
   const { userId, eventId, username, eventName, comment } = req.body;
@@ -480,7 +550,7 @@ app.post("/comments", async (req, res) => {
   try {
     const client = await pool.connect();
 
-    // to Save the comment to the database
+    // Salvar o comentário no banco de dados
     const commentResult = await client.query(
       "INSERT INTO comments (userId, eventId, username, eventName, comment, createdAt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
       [userId, eventId, username, eventName, comment, new Date()]
@@ -488,16 +558,39 @@ app.post("/comments", async (req, res) => {
 
     const savedComment = commentResult.rows[0];
 
+    // Obter os detalhes do evento associado ao eventId para obter o creatorUserId
+    const eventResult = await client.query(
+      "SELECT userid FROM events WHERE id = $1",
+      [eventId]
+    );
+
+    const eventDetails = eventResult.rows[0];
+
+    // Obter os detalhes do token associado ao userId para enviar a notificação
+    const tokenResult = await client.query(
+      "SELECT tokendevice FROM users WHERE id = $1",
+      [userId]
+    );
+
+    const tokenDetails = tokenResult.rows[0];
+
+    // Enviar notificação se o usuário que comentou no evento for diferente do creatorUserId
+    if (userId !== eventDetails.userid && tokenDetails.tokendevice !== null) {
+      const message = `${username} comentou no seu evento ${eventName}: "${comment}"`;
+
+      // Enviar a notificação push usando o Expo
+      sendPushNotification(tokenDetails.tokendevice, message);
+    }
+
     client.release();
 
-    // Submit the response with the new comment
+    // Enviar a resposta com o novo comentário
     res.status(201).json(savedComment);
   } catch (error) {
-    console.error("Error adding comment:", error); //show to user the error, add it later front end.
+    console.error("Error adding comment:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 //to delete a comment
 app.delete("/comments/:commentId", async (req, res) => {
   const commentId = req.params.commentId;
