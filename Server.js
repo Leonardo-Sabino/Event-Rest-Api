@@ -511,25 +511,31 @@ app.post("/tokenDevice/:userId", async (req, res) => {
 
 //notification on comment
 // Função para enviar notificação push usando o Expo
-const sendPushNotification = async (expoPushToken, body, title) => {
+const sendPushNotification = async (
+  expoPushToken,
+  body,
+  title,
+  eventId,
+  eventName
+) => {
   let expo = new Expo();
   let messages = [];
-  // Verificar se o ExpoPushToken é válido
+  //to Verify if ExpoPushToken is a valid token
   if (!Expo.isExpoPushToken(expoPushToken)) {
     console.error("ExpoPushToken inválido:", expoPushToken);
     return;
   }
 
-  // Criar mensagem para enviar a notificação
+  //to create the mensage to send the notification
   messages.push({
-    to: expoPushToken,
+    to: expoPushToken, // to the device
     sound: "default",
     body: body,
-    data: { body },
+    data: { eventId: eventId, eventName: eventName }, // to sent the event details to the front end
     title: title,
   });
 
-  // Enviar notificações
+  //to send the notifications
   let chunks = expo.chunkPushNotifications(messages);
   let tickets = [];
   (async () => {
@@ -537,6 +543,7 @@ const sendPushNotification = async (expoPushToken, body, title) => {
       try {
         let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
+        console.log("Notificação enviada!");
       } catch (error) {
         console.error("Erro ao enviar notificação:", error);
       }
@@ -582,8 +589,13 @@ app.post("/comments", async (req, res) => {
       console.log("Message:", message);
 
       // Enviar a notificação push usando o Expo
-      sendPushNotification(tokenDetails.tokendevice, message, title);
-      console.log("notificação enviada!");
+      sendPushNotification(
+        tokenDetails.tokendevice,
+        message,
+        title,
+        eventId,
+        eventName
+      );
     }
 
     client.release();
