@@ -516,7 +516,11 @@ const sendPushNotification = async (
   body,
   title,
   eventId,
-  eventName
+  eventName,
+  comment,
+  userId,
+  eventCreatorId,
+  username
 ) => {
   let expo = new Expo();
   let messages = [];
@@ -549,6 +553,30 @@ const sendPushNotification = async (
       }
     }
   })();
+
+  //to store the notification in the db
+  try {
+    const client = await pool.connect();
+
+    await client.query(
+      "INSERT INTO notifications (id,eventid,receiverid,senderid,username,eventname,comment,createat) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [
+        uuidv4(),
+        eventId,
+        eventCreatorId,
+        userId,
+        username,
+        eventName,
+        comment,
+        new Date(),
+      ]
+    );
+    client.release();
+
+    console.log("Notification successfully saved!");
+  } catch (error) {
+    console.error("Error saving notification:", error);
+  }
 };
 
 // to post a comment
@@ -594,7 +622,11 @@ app.post("/comments", async (req, res) => {
         message,
         title,
         eventId,
-        eventName
+        eventName,
+        comment,
+        userId,
+        eventDetails.userid,
+        username
       );
     }
 
@@ -635,6 +667,22 @@ app.delete("/comments/:commentId", async (req, res) => {
     res.status(200).json({ message: "Comentário excluído com sucesso" });
   } catch (error) {
     console.error("Error deleting comment:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// notifications
+app.get("/notifications", async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const savedNotifications = await client.query(
+      "SELECT * FROM notifications"
+    );
+    const notifications = savedNotifications.rows;
+    client.release();
+    res.json(notifications);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
