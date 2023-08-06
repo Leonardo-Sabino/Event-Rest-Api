@@ -517,10 +517,8 @@ const sendPushNotification = async (
   title,
   eventId,
   eventName,
-  comment,
   userId,
-  eventCreatorId,
-  username
+  eventCreatorId
 ) => {
   let expo = new Expo();
   let messages = [];
@@ -559,17 +557,8 @@ const sendPushNotification = async (
     const client = await pool.connect();
 
     await client.query(
-      "INSERT INTO notifications (id,eventid,receiverid,senderid,username,eventname,comment,createat) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-      [
-        uuidv4(),
-        eventId,
-        eventCreatorId,
-        userId,
-        username,
-        eventName,
-        comment,
-        new Date(),
-      ]
+      "INSERT INTO notifications (id,eventid,receiverid,senderid,eventname,message,createat) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [uuidv4(), eventId, eventCreatorId, userId, eventName, body, new Date()]
     );
     client.release();
 
@@ -623,10 +612,8 @@ app.post("/comments", async (req, res) => {
         title,
         eventId,
         eventName,
-        comment,
         userId,
-        eventDetails.userid,
-        username
+        eventDetails.userid
       );
     }
 
@@ -683,6 +670,38 @@ app.get("/notifications", async (req, res) => {
     res.json(notifications);
   } catch (error) {
     console.error("Error fetching notifications:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/notifications/:notificationId", async (req, res) => {
+  const notificationId = req.params.notificationId;
+  const receiverId = req.body.receiverId;
+
+  try {
+    const client = await pool.connect();
+
+    const countRows = await client.query(
+      "SELECT * FROM notifications WHERE id =$1 AND receiverid = $2",
+      [notificationId, receiverId]
+    );
+
+    if (countRows.rows.length === 0) {
+      client.release();
+      return res
+        .status(404)
+        .json({ error: "Não foi possível eliminar a notificação." });
+    }
+
+    await client.query("DELETE FROM notifications WHERE id = $1", [
+      notificationId,
+    ]);
+
+    res.status(200).json({ message: "Notificação removida com sucesso." });
+
+    client.release();
+  } catch (error) {
+    console.log("Ocorreu um erro:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
