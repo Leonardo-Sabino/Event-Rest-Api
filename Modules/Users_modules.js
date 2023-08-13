@@ -66,16 +66,17 @@ router.post("/signup", async (req, res) => {
       client.release();
       return res
         .status(400)
-        .json({ error: "Esse nome de usuário já está em uso." });
+        .json({ error_message: "Esse nome de usuário já está em uso." });
     }
 
-    // Generate a random token for the new user using uuid
-    const token = uuidv4();
+    // Generate a random token and idfor the new user using uuid
+    const [token, id] = [uuidv4(), uuidv4()];
 
     // Insert the new user into the database with the generated token
     await client.query(
-      "INSERT INTO users (username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6)",
+      "INSERT INTO users (id,username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6, $7)",
       [
+        id,
         newUser.username,
         newUser.email,
         newUser.password,
@@ -90,7 +91,7 @@ router.post("/signup", async (req, res) => {
     // Return the token along with the user information
     res.json({
       message: "User added successfully!",
-      user: { ...newUser, userimage, token },
+      user: { ...newUser, token },
     });
   } catch (error) {
     console.error("Error adding user:", error);
