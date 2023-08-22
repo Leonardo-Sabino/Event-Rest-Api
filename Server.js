@@ -22,6 +22,16 @@ app.put("/events/:eventId", eventsRouter);
 app.put("/events/:id/state", eventsRouter);
 app.delete("/events/:eventId", eventsRouter);
 
+//liked events
+app.get("/LikedEvents", eventsRouter);
+app.post("/events/likes/:id", eventsRouter);
+app.delete("/events/likes/:id", eventsRouter);
+
+//favourites events
+app.get("/FavEvents", eventsRouter);
+app.post("/events/favourites/:id", eventsRouter);
+app.delete("/events/favourites/:id", eventsRouter);
+
 //for the nightclubs
 app.get("/nightclubs", nightclubsRouter);
 app.get("/nightclubs/:id", nightclubsRouter);

@@ -209,6 +209,180 @@ router.delete("/events/:eventId", async (req, res) => {
   }
 });
 
+//liked events
+
+router.get("/LikedEvents", async (req, res) => {
+  try {
+    const client = await pool.connect();
+
+    // Query for liked events associated with the specified event ID
+    const likedEvents = await client.query("SELECT * FROM liked_events");
+
+    // Check if any liked events were found
+    if (likedEvents.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error_message: "Liked events not found" });
+    }
+
+    client.release();
+    return res.status(200).json(likedEvents.rows); // Return the result as json
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json({ error: "Internal error occured" });
+  }
+});
+
+//add like
+router.post("/events/likes/:id", async (req, res) => {
+  const eventId = req.params.id;
+  const userId = req.body.userId;
+
+  try {
+    const client = await pool.connect();
+
+    // Check if the event has NOT been liked by the user
+    const likedEvents = await client.query(
+      "SELECT * FROM liked_events WHERE event_id = $1 AND user_id = $2",
+      [eventId, userId]
+    );
+
+    if (likedEvents.rows.length > 0) {
+      client.release();
+      return res.status(400).json({ message: "Você já curtiu este evento" });
+    }
+
+    // Insert the liked event
+    await client.query(
+      "INSERT INTO liked_events (id, user_id, event_id) VALUES ($1, $2, $3)",
+      [uuidv4(), userId, eventId]
+    );
+
+    client.release();
+    return res.status(200).json({ message: "Event Liked!" });
+  } catch (error) {
+    console.error("Error liking event:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+//remove like from events
+router.delete("/events/likes/:id", async (req, res) => {
+  const eventId = req.params.id;
+  const userId = req.body.userId;
+
+  try {
+    const client = await pool.connect();
+
+    // Check if the user has liked the event
+    let result = await client.query(
+      "SELECT * FROM liked_events WHERE event_id = $1 AND user_id = $2",
+      [eventId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      client.release();
+      return res
+        .status(404)
+        .json({ message: "Event not found in liked events" });
+    }
+
+    // Delete the liked event
+    await client.query(
+      "DELETE FROM liked_events WHERE event_id = $1 AND user_id = $2",
+      [eventId, userId]
+    );
+
+    client.release();
+    return res.status(200).json({ message: "Event disliked" });
+  } catch (error) {
+    console.error("Error disliking event:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+//fourites events
+router.get("/FavEvents", async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const favorites = await client.query("SELECT * FROM fav_events");
+
+    //to see if there is favourites events
+    if (favorites.rows.length === 0) {
+      client.release();
+      return res
+        .status(400)
+        .json({ error_message: "No favourites events found" });
+    }
+    client.release();
+    res.status(200).json(favorites.rows);
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json({ error: "Internal error occured" });
+  }
+});
+
+//add to favourites
+router.post("/events/favourites/:id", async (req, res) => {
+  const eventId = req.params.id;
+  const userId = req.params.userId;
+
+  try {
+    const client = await pool.connect();
+    const favorites = await client.query(
+      "SELECT * FROM fav_events WHERE event_id = $1 AND user_id = $2",
+      [eventId, userId]
+    );
+
+    if (favorites.rows.length > 0) {
+      client.release();
+      return res
+        .status(400)
+        .json({ error_message: "You already have this event as a favorite" });
+    }
+
+    await client.query(
+      "INSERT INTO fav_events (id, user_id, event_id) VALUES ($1, $2, $3)",
+      [uuidv4(), userId, eventId]
+    );
+
+    client.release();
+    return res.status(200).json({ message: "Event added to favorites!" });
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json({ error: "Internal server error occurred!" });
+  }
+});
+
+//remove from favorites
+router.delete("/events/favourites/:id", async (req, res) => {
+  const eventId = req.params.id;
+  const userId = req.params.userId;
+
+  try {
+    const client = await pool.connect();
+    const favorites = await client.query(
+      "SELECT * FROM fav_events WHERE event_id = $1 AND user_id = $2",
+      [eventId, userId]
+    );
+
+    if (favorites.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error_message: "Event does not exist" });
+    }
+
+    await client.query(
+      "DELETE FROM fav_events WHERE event_id = $1 AND user_id = $2",
+      [eventId, userId]
+    );
+
+    client.release();
+    return res.status(200).json({ message: "Event remove from favourites!" });
+  } catch (error) {
+    console.log("Error:", error);
+    res.status(500).json({ error: "Internal server error occurred!" });
+  }
+});
+
 //To verify the event and change the state
 async function updateEventStates() {
   const currentDate = new Date();
