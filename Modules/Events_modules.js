@@ -324,7 +324,7 @@ router.get("/FavEvents", async (req, res) => {
 //add to favourites
 router.post("/events/favourites/:id", async (req, res) => {
   const eventId = req.params.id;
-  const userId = req.params.userId;
+  const userId = req.body.userId;
 
   try {
     const client = await pool.connect();
@@ -346,7 +346,7 @@ router.post("/events/favourites/:id", async (req, res) => {
     );
 
     client.release();
-    return res.status(200).json({ message: "Event added to favorites!" });
+    return res.status(200).json({ message: "Event added to favourites!" });
   } catch (error) {
     console.log("Error:", error);
     res.status(500).json({ error: "Internal server error occurred!" });
@@ -356,7 +356,7 @@ router.post("/events/favourites/:id", async (req, res) => {
 //remove from favorites
 router.delete("/events/favourites/:id", async (req, res) => {
   const eventId = req.params.id;
-  const userId = req.params.userId;
+  const userId = req.body.userId;
 
   try {
     const client = await pool.connect();
@@ -376,7 +376,7 @@ router.delete("/events/favourites/:id", async (req, res) => {
     );
 
     client.release();
-    return res.status(200).json({ message: "Event remove from favourites!" });
+    return res.status(200).json({ message: "Event removed from favourites!" });
   } catch (error) {
     console.log("Error:", error);
     res.status(500).json({ error: "Internal server error occurred!" });
