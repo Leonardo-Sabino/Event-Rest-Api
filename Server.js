@@ -50,6 +50,11 @@ app.get("/comments", commentsRouter);
 app.post("/comments", commentsRouter);
 app.delete("/comments/:commentId", commentsRouter);
 
+//for likes on comments
+app.get("/comment/likes", commentsRouter);
+app.post("/comment/likes/:id", commentsRouter);
+app.delete("/comment/likes/:id", commentsRouter);
+
 //for the notifications
 app.get("/notifications", notificationsRouter);
 app.delete("/notifications/:notificationId", notificationsRouter);

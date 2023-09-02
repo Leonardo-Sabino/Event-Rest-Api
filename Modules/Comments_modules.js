@@ -202,4 +202,94 @@ router.delete("/comments/:commentId", async (req, res) => {
   }
 });
 
+//for the liked comments
+router.get("/comment/likes", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const likes = await client.query("SELECT * FROM likes_comment");
+
+    if (likes.rows.length === 0) {
+      return res.status(404).json({ error_message: "No likes found!" });
+    }
+
+    res.status(201).json(likes.rows);
+  } catch (error) {
+    console.log("Error fecthing comment likes:", error);
+    res.status(500).json({ error: "Internal error occurred!" });
+  } finally {
+    client.release(); // Release the client connection in a finally block
+  }
+});
+
+router.post("/comment/likes/:id", async (req, res) => {
+  const commentId = req.params.id;
+  const eventId = req.body.eventId;
+  const userId = req.body.userId;
+
+  const client = await pool.connect();
+
+  try {
+    const likeComment = await client.query(
+      "SELECT * FROM likes_comment WHERE comment_id = $1 AND user_id = $2 AND event_id = $3",
+      [commentId, userId, eventId]
+    );
+
+    if (likeComment.rows.length !== 0) {
+      return res
+        .status(404)
+        .json({ error_message: "User has already liked this comment." });
+    }
+
+    // Insert a new like
+    await client.query(
+      "INSERT INTO likes_comment (id, event_id,comment_id ,user_id) VALUES ($1, $2, $3,$4)",
+      [uuidv4(), eventId, commentId, userId]
+    );
+    res.status(201).json({ message: "Comment liked successfully!" });
+  } catch (error) {
+    console.log("Error liking on comment:", error);
+    res.status(500).json({ error: "Internal error occurred!" });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete("/comment/likes/:id", async (req, res) => {
+  const commentId = req.params.id;
+  const eventId = req.body.eventId;
+  const userId = req.body.userId;
+
+  const client = await pool.connect();
+
+  try {
+    // Check if the like exists for the specified comment, user, and event
+    const likeComment = await client.query(
+      "SELECT * FROM likes_comment WHERE comment_id = $1 AND user_id = $2 AND event_id = $3",
+      [commentId, userId, eventId]
+    );
+
+    if (likeComment.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error_message: "Like on this comment does not exist." });
+    }
+
+    // Delete the like associated with the comment, user, and event
+    await client.query(
+      "DELETE FROM likes_comment WHERE comment_id = $1 AND user_id = $2 AND event_id = $3",
+      [commentId, userId, eventId]
+    );
+
+    res
+      .status(200)
+      .json({ message: "Like removed from comment successfully!" });
+  } catch (error) {
+    console.error("Error removing like from comment:", error);
+    res.status(500).json({ error: "Internal error occurred!" });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
