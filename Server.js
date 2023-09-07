@@ -4,11 +4,11 @@ const app = express();
 const port = 3000;
 
 // Import the route modules
-const eventsRouter = require("./Modules/Events_modules");
-const nightclubsRouter = require("./Modules/Nightclubs_modules");
-const usersRouter = require("./Modules/Users_modules");
-const commentsRouter = require("./Modules/Comments_modules");
-const notificationsRouter = require("./Modules/Notifications_modules");
+const eventsRouter = require("./Routes/Events_routes");
+const nightclubsRouter = require("./Routes/Nightclubs_routes");
+const usersRouter = require("./Routes/Users_routes");
+const commentsRouter = require("./Routes/Comments_routes");
+const notificationsRouter = require("./Routes/Notifications_routes");
 
 app.use(bodyParser.json());
 
