@@ -59,7 +59,7 @@ router.put("/events/:eventId", async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query(
-      "UPDATE events SET longitude = $2, latitude = $3, eventname = $4, eventdescription = $5, eventphotograph = $6, starttime = $7, endtime = $8, eventdate = $9, price = $10 WHERE id = $1",
+      "UPDATE events SET longitude = $2, latitude = $3, eventname = $4, eventdescription = $5, eventphotograph = $6, starttime = $7, endtime = $8, eventdate = $9, price = $10, owner_contact = $11 WHERE id = $1",
       [
         eventId,
         updatedEvent.longitude,
@@ -71,6 +71,7 @@ router.put("/events/:eventId", async (req, res) => {
         updatedEvent.endtime,
         updatedEvent.eventdate,
         updatedEvent.price,
+        updatedEvent.ownerContact
       ]
     );
 
@@ -143,12 +144,13 @@ router.post("/events", async (req, res) => {
     userId: req.body.userId,
     userName: req.body.userName,
     state: "pendente",
+    ownerContact:req.body.ownerContact,
   };
 
   try {
     const client = await pool.connect();
     await client.query(
-      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId,userName, state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId,userName, state,owner_contact) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,$16)",
       [
         newEvent.id,
         newEvent.longitude,
@@ -165,6 +167,7 @@ router.post("/events", async (req, res) => {
         newEvent.userId,
         newEvent.userName,
         newEvent.state,
+        newEvent.ownerContact
       ]
     );
 
