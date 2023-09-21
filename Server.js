@@ -2,6 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const app = express();
 const port = 3000;
+const http = require("http"); // Import the http module
+const socketIo = require("socket.io");
 
 // Import the route modules
 const eventsRouter = require("./Routes/Events_routes");
@@ -12,7 +14,30 @@ const notificationsRouter = require("./Routes/Notifications_routes");
 
 app.use(bodyParser.json());
 
-// Use the route modules
+//web sockect
+
+const server = http.createServer(app); // Create an HTTP server using Express app
+
+const websocketServer = socketIo(server); // Attach WebSocket server to the HTTP server
+
+global.websocketServer = websocketServer; // delacre websocketServer as global so i can get acess on the methods of users
+
+// listen to connections from clients
+websocketServer.on("connection", (socket) => {
+  console.log("Client connected");
+
+  // Listen for user updates and broadcast them to connected clients
+  socket.on("userUpdate", (updatedUser) => {
+    // Emit the updated user to all connected clients
+    websocketServer.emit("userUpdate", updatedUser);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
+
+//route modules
 
 //for the events
 app.get("/events", eventsRouter);
@@ -59,6 +84,6 @@ app.delete("/comment/likes/:id", commentsRouter);
 app.get("/notifications", notificationsRouter);
 app.delete("/notifications/:notificationId", notificationsRouter);
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

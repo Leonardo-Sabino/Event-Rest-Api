@@ -69,7 +69,7 @@ router.post("/signup", async (req, res) => {
         .json({ error_message: "Esse nome de usuário já está em uso." });
     }
 
-    // Generate a random token and idfor the new user using uuid
+    // Generate a random token and id for the new user using uuid
     const [token, id] = [uuidv4(), uuidv4()];
 
     // Insert the new user into the database with the generated token
@@ -85,6 +85,9 @@ router.post("/signup", async (req, res) => {
         token,
       ]
     );
+
+    // Emit the "userUpdate" event to notify all connected clients about the new user
+    websocketServer.emit("userUpdate", { id, ...newUser, token });
 
     client.release();
 
@@ -118,6 +121,7 @@ router.put("/users/:userId", async (req, res) => {
     );
     if (result.rowCount === 1) {
       res.json({ message: "User updated successfully!" });
+      websocketServer.emit("userUpdate", { userId, ...updatedUser }); // Emit the "userUpdate" event to notify all connected clients about the new user
     } else {
       res.status(404).json({ message: "User not found!" });
     }
