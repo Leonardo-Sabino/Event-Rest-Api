@@ -121,8 +121,8 @@ router.post("/comments", async (req, res) => {
 
     // Salvar o comentário no banco de dados
     const commentResult = await client.query(
-      "INSERT INTO comments (userId, eventId, username, eventName, comment, createdAt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [userId, eventId, username, eventName, comment, new Date()]
+      "INSERT INTO comments (userId, eventId, eventName, comment, createdAt) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [userId, eventId,eventName, comment, new Date()]
     );
 
     const savedComment = commentResult.rows[0];
@@ -143,22 +143,22 @@ router.post("/comments", async (req, res) => {
 
     const tokenDetails = tokenResult.rows[0];
 
-    // Enviar notificação se o usuário que comentou no evento for diferente do creatorUserId
-    if (userId !== eventDetails.userid && tokenDetails !== null) {
+    // Enviar notificação se o usuário que comentou no evento for diferente do creatorUserId e se o token device existir
+    if (userId !== eventDetails.userid && tokenDetails && tokenDetails.tokendevice) {
       const message = `${username} comentou no seu evento ${eventName}: "${comment}"`;
       const title = "Novo comentário";
       console.log("Message:", message);
 
       // Enviar a notificação push usando o Expo
-      sendPushNotification(
-        tokenDetails.tokendevice,
-        message,
-        title,
-        eventId,
-        eventName,
-        userId,
-        eventDetails.userid
-      );
+        sendPushNotification(
+          tokenDetails.tokendevice,
+          message,
+          title,
+          eventId,
+          eventName,
+          userId,
+          eventDetails.userid
+        );
     }
 
     client.release();
