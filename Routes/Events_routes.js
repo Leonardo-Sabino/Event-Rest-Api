@@ -142,7 +142,6 @@ router.post("/events", async (req, res) => {
     reviews: req.body.reviews,
     price: req.body.price,
     userId: req.body.userId,
-    userName: req.body.userName,
     state: "pendente",
     ownerContact:req.body.ownerContact,
   };
@@ -150,7 +149,7 @@ router.post("/events", async (req, res) => {
   try {
     const client = await pool.connect();
     await client.query(
-      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId,userName, state,owner_contact) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,$16)",
+      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId, state,owner_contact) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
       [
         newEvent.id,
         newEvent.longitude,
@@ -165,7 +164,6 @@ router.post("/events", async (req, res) => {
         newEvent.reviews,
         newEvent.price,
         newEvent.userId,
-        newEvent.userName,
         newEvent.state,
         newEvent.ownerContact
       ]
