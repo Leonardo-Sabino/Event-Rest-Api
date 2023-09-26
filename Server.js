@@ -11,6 +11,7 @@ const nightclubsRouter = require("./Routes/Nightclubs_routes");
 const usersRouter = require("./Routes/Users_routes");
 const commentsRouter = require("./Routes/Comments_routes");
 const notificationsRouter = require("./Routes/Notifications_routes");
+const followersRouter = require("./Routes/Followers_routes");
 
 app.use(bodyParser.json());
 
@@ -79,6 +80,11 @@ app.delete("/comments/:commentId", commentsRouter);
 app.get("/comment/likes", commentsRouter);
 app.post("/comment/likes/:id", commentsRouter);
 app.delete("/comment/likes/:id", commentsRouter);
+
+//for the followers
+app.get("/followers",followersRouter);
+app.post("/followers/:id",followersRouter);
+app.delete("/followers/:id",followersRouter);
 
 //for the notifications
 app.get("/notifications", notificationsRouter);
