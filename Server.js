@@ -82,9 +82,10 @@ app.post("/comment/likes/:id", commentsRouter);
 app.delete("/comment/likes/:id", commentsRouter);
 
 //for the followers
-app.get("/followers",followersRouter);
-app.post("/followers/:id",followersRouter);
-app.delete("/followers/:id",followersRouter);
+app.get("/followers", followersRouter);
+app.post("/following/:id", followersRouter);
+app.delete("/following/:id", followersRouter);
+app.delete("/followers/:id", followersRouter);
 
 //for the notifications
 app.get("/notifications", notificationsRouter);

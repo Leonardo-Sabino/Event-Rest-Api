@@ -40,8 +40,8 @@ router.get("/followers", async (req, res) => {
   }
 });
 
-router.post("/followers/:id", async (req, res) => {
-  const followerId = req.params.id;
+router.post("/following/:id", async (req, res) => {
+  const userId = req.params.id;
   const followingId = req.body.followingId;
 
   const client = await pool.connect();
@@ -49,7 +49,7 @@ router.post("/followers/:id", async (req, res) => {
     // Check if the user is already following the specified user
     const existingFollower = await client.query(
       "SELECT * FROM followers WHERE user_id = $1 AND following_id = $2",
-      [followerId, followingId]
+      [userId, followingId]
     );
 
     if (existingFollower.rows.length !== 0) {
@@ -61,7 +61,7 @@ router.post("/followers/:id", async (req, res) => {
     // Insert the new follower relationship
     await client.query(
       "INSERT INTO followers (id, user_id, following_id, created_at) VALUES ($1, $2, $3, $4)",
-      [uuidv4(), followerId, followingId, new Date()]
+      [uuidv4(), userId, followingId, new Date()]
     );
 
     res.status(201).json({ success_message: "Following this user" });
@@ -73,35 +73,63 @@ router.post("/followers/:id", async (req, res) => {
   }
 });
 
-router.delete("/followers/:id", async (req, res) => {
-  const followerId = req.params.id;
-  const followingId = req.body.followingId;
+const removeFollowerOrFollowing = async (req, res, type) => {
+  const userId = req.params.id;
+  const otherUserId =
+    type === "followers" ? req.body.followerId : req.body.followingId;
+  const choise = req.params.choise;
 
   const client = await pool.connect();
   try {
-    // Check if the user is already following the specified user
-    const existingFollower = await client.query(
-      "SELECT * FROM followers WHERE user_id = $1 AND following_id = $2",
-      [followerId, followingId]
+    // Check if the relationship exists in either direction (follower or following)
+    const existingRelationship = await client.query(
+      "SELECT * FROM followers WHERE (user_id = $1 AND following_id = $2) OR (user_id = $2 AND following_id = $1)",
+      [userId, otherUserId]
     );
 
-    if (existingFollower.rows.length === 0) {
-      return res.status(400).json({ message: "Follower does not exist!" });
+    if (existingRelationship.rows.length === 0) {
+      return res.status(400).json({
+        message: `${
+          type === "followers" ? "Follower" : "Following"
+        } does not exist!`,
+      });
+    }
+    //if user choose "yes", it removes the relationship in both directions
+    if (choise === "yes") {
+      await client.query(
+        "DELETE FROM followers WHERE (user_id = $1 AND following_id = $2) OR (user_id = $2 AND following_id = $1)",
+        [userId, otherUserId]
+      );
+    } else {
+      //If type is "followers," it deletes the relationship where otherUserId is following otherwise it deletes the relationship in the opposite direction.
+      if (type === "followers") {
+        await client.query(
+          "DELETE FROM followers WHERE (user_id = $1 AND following_id = $2)",
+          [otherUserId, userId]
+        );
+      } else {
+        await client.query(
+          "DELETE FROM followers WHERE (user_id = $1 AND following_id = $2)",
+          [userId, otherUserId]
+        );
+      }
     }
 
-    // Remove follower from db
-    await client.query(
-      "DELETE FROM followers WHERE user_id = $1 AND following_id = $2",
-      [followerId, followingId]
-    );
-
-    res.status(201).json({ success_message: "Follower removed!" });
+    res.status(204).end(); // HTTP 204 for success without response body
   } catch (error) {
     console.error("Error: ", error);
     res.status(500).json({ error: "An error occurred on the server" });
   } finally {
     client.release();
   }
+};
+
+router.delete("/following/:id", async (req, res) => {
+  await removeFollowerOrFollowing(req, res, "following");
+});
+
+router.delete("/followers/:id", async (req, res) => {
+  await removeFollowerOrFollowing(req, res, "followers");
 });
 
 module.exports = router;
