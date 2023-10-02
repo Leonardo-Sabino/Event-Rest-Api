@@ -75,9 +75,9 @@ router.post("/following/:id", async (req, res) => {
 
 const removeFollowerOrFollowing = async (req, res, type) => {
   const userId = req.params.id;
+  const choise = req.body.choise;
   const otherUserId =
     type === "followers" ? req.body.followerId : req.body.followingId;
-  const choise = req.params.choise;
 
   const client = await pool.connect();
   try {
