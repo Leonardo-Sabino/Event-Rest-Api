@@ -12,6 +12,7 @@ const usersRouter = require("./Routes/Users_routes");
 const commentsRouter = require("./Routes/Comments_routes");
 const notificationsRouter = require("./Routes/Notifications_routes");
 const followersRouter = require("./Routes/Followers_routes");
+const peopleGoingRouter = require("./Routes/PeopleGoing_routes");
 
 app.use(bodyParser.json());
 
@@ -90,6 +91,11 @@ app.delete("/followers/:id", followersRouter);
 //for the notifications
 app.get("/notifications", notificationsRouter);
 app.delete("/notifications/:notificationId", notificationsRouter);
+
+//for the user going to the Event
+app.get("/going", peopleGoingRouter);
+app.post("/going/:id", peopleGoingRouter);
+app.delete("/going/:id", peopleGoingRouter);
 
 server.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
