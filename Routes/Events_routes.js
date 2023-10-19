@@ -71,7 +71,7 @@ router.put("/events/:eventId", async (req, res) => {
         updatedEvent.endtime,
         updatedEvent.eventdate,
         updatedEvent.price,
-        updatedEvent.ownerContact
+        updatedEvent.ownerContact,
       ]
     );
 
@@ -128,50 +128,51 @@ router.put("/events/:id/state", async (req, res) => {
 
 // Route to add a new event
 router.post("/events", async (req, res) => {
-  const newEvent = {
-    id: uuidv4(),
-    longitude: req.body.longitude,
-    latitude: req.body.latitude,
-    eventname: req.body.eventname,
-    eventdescription: req.body.eventdescription,
-    eventphotograph: req.body.eventphotograph,
-    starttime: req.body.starttime,
-    endtime: req.body.endtime,
-    eventdate: req.body.eventdate,
-    rating: req.body.rating,
-    reviews: req.body.reviews,
-    price: req.body.price,
-    userId: req.body.userId,
-    state: "pendente",
-    ownerContact:req.body.ownerContact,
-  };
+  const id = uuidv4();
+  const {
+    eventphotograph,
+    longitude,
+    latitude,
+    eventname,
+    eventdescription,
+    starttime,
+    endtime,
+    eventdate,
+    price,
+    userId,
+    ownerContact,
+  } = req.body;
+
+  console.log(eventname);
 
   try {
     const client = await pool.connect();
-    await client.query(
-      "INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, rating, reviews, price, userId, state,owner_contact) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
-      [
-        newEvent.id,
-        newEvent.longitude,
-        newEvent.latitude,
-        newEvent.eventname,
-        newEvent.eventdescription,
-        newEvent.eventphotograph,
-        newEvent.starttime,
-        newEvent.endtime,
-        newEvent.eventdate,
-        newEvent.rating,
-        newEvent.reviews,
-        newEvent.price,
-        newEvent.userId,
-        newEvent.state,
-        newEvent.ownerContact
-      ]
-    );
+
+    const query = `
+      INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, price, userId, state, owner_contact)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id `;
+
+    const values = [
+      id,
+      longitude,
+      latitude,
+      eventname,
+      eventdescription,
+      eventphotograph,
+      starttime,
+      endtime,
+      eventdate,
+      price,
+      userId,
+      "pendente",
+      ownerContact,
+    ];
+
+    await client.query(`${query}`, values);
 
     client.release();
 
-    res.json({ message: "Event added successfully!", event: newEvent });
+    res.json({ message: "Event added successfully!" });
   } catch (error) {
     console.error("Error adding event:", error);
     res.status(500).json({ error: "Internal server error" });

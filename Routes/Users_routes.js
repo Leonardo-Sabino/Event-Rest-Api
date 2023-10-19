@@ -86,7 +86,7 @@ router.post("/signup", async (req, res) => {
       ]
     );
 
-    // Emit the "userUpdate" event to notify all connected clients about the new user
+    // Emit the "userUpdate" event to notify all connected clients about the new user(websocketServer is a global variable)
     websocketServer.emit("userUpdate", { id, ...newUser, token });
 
     client.release();
