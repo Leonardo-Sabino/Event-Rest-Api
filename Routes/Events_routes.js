@@ -52,10 +52,10 @@ router.get("/events/:id", async (req, res) => {
 });
 
 // Route to update an event by ID (getting error)
-router.put("/events/:eventId", async (req, res) => {
-  const eventId = req.params.eventId;
+router.put("/events/:id", async (req, res) => {
+  const eventId = req.params.id;
   const updatedEvent = req.body;
-
+  const { userId } = updatedEvent;
   try {
     const client = await pool.connect();
     const result = await client.query(
@@ -77,6 +77,12 @@ router.put("/events/:eventId", async (req, res) => {
 
     if (result.rowCount === 1) {
       res.json({ message: "Event updated successfully!" });
+      // emit the for the users connected that a event has been updated
+      websocketServer.emit("eventUpdated", {
+        eventId,
+        ...updatedEvent,
+        userId,
+      });
     } else {
       res.status(404).json({ error: "Event not found" });
     }

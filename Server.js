@@ -14,6 +14,7 @@ const notificationsRouter = require("./Routes/Notifications_routes");
 const followersRouter = require("./Routes/Followers_routes");
 const peopleGoingRouter = require("./Routes/PeopleGoing_routes");
 
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -36,6 +37,17 @@ websocketServer.on("connection", (socket) => {
     // Emit the updated user to all connected clients
     websocketServer.emit("userUpdate", updatedUser);
   });
+  // Listen for new user added  and broadcast them to connected clients
+  socket.on("newUser", (newUser) => {
+    // Emit the new user to all connected clients
+    websocketServer.emit("newUser", newUser);
+  });
+
+  //for the events
+  socket.on("eventUpdated", (updatedEvent) => {
+    // Emit the event update to all connected clients
+    websocketServer.emit("eventUpdated", updatedEvent);
+  })
 
   socket.on("disconnect", () => {
     console.log("Client disconnected");

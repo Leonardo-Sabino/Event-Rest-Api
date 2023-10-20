@@ -86,8 +86,8 @@ router.post("/signup", async (req, res) => {
       ]
     );
 
-    // Emit the "userUpdate" event to notify all connected clients about the new user(websocketServer is a global variable)
-    websocketServer.emit("userUpdate", { id, ...newUser, token });
+    // Emit the "newUser" event to notify all connected clients about the new user(websocketServer is a global variable)
+    websocketServer.emit("newUser", { id, ...newUser, token });
 
     client.release();
 
@@ -103,8 +103,8 @@ router.post("/signup", async (req, res) => {
 });
 
 //put method to update the user info
-router.put("/users/:userId", async (req, res) => {
-  let userId = req.params.userId;
+router.put("/users/:id", async (req, res) => {
+  let userId = req.params.id;
   const updatedUser = req.body;
 
   try {
