@@ -18,7 +18,7 @@ const pool = new Pool({
 // Middlewares
 router.use(bodyParser.json());
 
-router.get("/followers", async (req, res) => {
+router.get("/followers&followings", async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -48,23 +48,25 @@ router.post("/following/:id", async (req, res) => {
   try {
     // Check if the user is already following the specified user
     const existingFollower = await client.query(
-      "SELECT * FROM followers WHERE user_id = $1 AND following_id = $2",
+      "SELECT * FROM followers WHERE follower_id = $1 AND following_id = $2",
       [userId, followingId]
     );
 
     if (existingFollower.rows.length !== 0) {
       return res
-        .status(400)
+        .status(409)
         .json({ message: "You are already following this user" });
     }
 
     // Insert the new follower relationship
     await client.query(
-      "INSERT INTO followers (id, user_id, following_id, created_at) VALUES ($1, $2, $3, $4)",
+      "INSERT INTO followers (id, follower_id, following_id, created_at) VALUES ($1, $2, $3, $4)",
       [uuidv4(), userId, followingId, new Date()]
     );
 
-    res.status(201).json({ success_message: "Following this user" });
+    res
+      .status(201)
+      .json({ success_message: "You are now following this user" });
   } catch (error) {
     console.error("Error: ", error);
     res.status(500).json({ error: "An error occurred on the server" });
@@ -83,7 +85,7 @@ const removeFollowerOrFollowing = async (req, res, type) => {
   try {
     // Check if the relationship exists in either direction (follower or following)
     const existingRelationship = await client.query(
-      "SELECT * FROM followers WHERE (user_id = $1 AND following_id = $2) OR (user_id = $2 AND following_id = $1)",
+      "SELECT * FROM followers WHERE (follower_id = $1 AND following_id = $2) OR (follower_id = $2 AND following_id = $1)",
       [userId, otherUserId]
     );
 
@@ -97,19 +99,19 @@ const removeFollowerOrFollowing = async (req, res, type) => {
     //if user choose "yes", it removes the relationship in both directions
     if (choise === "yes") {
       await client.query(
-        "DELETE FROM followers WHERE (user_id = $1 AND following_id = $2) OR (user_id = $2 AND following_id = $1)",
+        "DELETE FROM followers WHERE (follower_id = $1 AND following_id = $2) OR (follower_id = $2 AND following_id = $1)",
         [userId, otherUserId]
       );
     } else {
       //If type is "followers," it deletes the relationship where otherUserId is following otherwise it deletes the relationship in the opposite direction.
       if (type === "followers") {
         await client.query(
-          "DELETE FROM followers WHERE (user_id = $1 AND following_id = $2)",
+          "DELETE FROM followers WHERE (follower_id = $1 AND following_id = $2)",
           [otherUserId, userId]
         );
       } else {
         await client.query(
-          "DELETE FROM followers WHERE (user_id = $1 AND following_id = $2)",
+          "DELETE FROM followers WHERE (follower_id = $1 AND following_id = $2)",
           [userId, otherUserId]
         );
       }
