@@ -59,12 +59,13 @@ const sendPushNotification = async (
   expoPushToken,
   body,
   title,
-  eventId,
-  eventName,
+  eventid,
+  eventname,
   userId,
   eventCreatorId
 ) => {
   let expo = new Expo();
+  const [id, date] = [uuidv4(), new Date()];
   let messages = [];
   //to Verify if ExpoPushToken is a valid token
   if (!Expo.isExpoPushToken(expoPushToken)) {
@@ -77,7 +78,15 @@ const sendPushNotification = async (
     to: expoPushToken, // to the device
     sound: "default",
     body: body,
-    data: { eventId: eventId, eventName: eventName }, // to sent the event details to the front end
+    data: {
+      id,
+      eventid,
+      eventname,
+      senderid: userId,
+      receiverid: eventCreatorId,
+      createat: date,
+      message: body,
+    }, // to sent the event details to the front end
     title: title,
   });
 
@@ -102,7 +111,7 @@ const sendPushNotification = async (
 
     await client.query(
       "INSERT INTO notifications (id,eventid,receiverid,senderid,eventname,message,createat) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [uuidv4(), eventId, eventCreatorId, userId, eventName, body, new Date()]
+      [id, eventid, eventCreatorId, userId, eventname, body, date]
     );
     client.release();
 
