@@ -48,6 +48,16 @@ websocketServer.on("connection", (socket) => {
     websocketServer.emit("eventUpdated", updatedEvent);
   });
 
+  //for newComments added
+  socket.on("newComment", (newComment) => {
+    websocketServer.emit("newComment", newComment);
+  });
+
+  //for comment removed
+  socket.on("deleteComment", (deletedComment) => {
+    websocketServer.emit("deleteComment", deletedComment);
+  });
+
   socket.on("disconnect", () => {
     console.log("Client disconnected");
   });

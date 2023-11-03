@@ -115,14 +115,24 @@ const sendPushNotification = async (
 // to post a comment
 router.post("/comments", async (req, res) => {
   const { userId, eventId, username, eventName, comment } = req.body;
+  const [id, date] = [uuidv4(), new Date()];
+
+  const newComment = {
+    id,
+    userid: userId,
+    eventid: eventId,
+    eventname: eventName,
+    comment,
+    createdat: date,
+  };
 
   try {
     const client = await pool.connect();
 
     // Salvar o comentário no banco de dados
     const commentResult = await client.query(
-      "INSERT INTO comments (userId, eventId, eventName, comment, createdAt) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [userId, eventId,eventName, comment, new Date()]
+      "INSERT INTO comments (id, userid, eventid, eventname, comment, createdat) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [id, userId, eventId, eventName, comment, date]
     );
 
     const savedComment = commentResult.rows[0];
@@ -143,28 +153,37 @@ router.post("/comments", async (req, res) => {
 
     const tokenDetails = tokenResult.rows[0];
 
+    //webSocket connnection
+    websocketServer.emit("newComment", { ...newComment }); // Emit the "newComment" event to notify all connected clients about the new comment added
+
     // Enviar notificação se o usuário que comentou no evento for diferente do creatorUserId e se o token device existir
-    if (userId !== eventDetails.userid && tokenDetails && tokenDetails.tokendevice) {
+    if (
+      userId !== eventDetails.userid &&
+      tokenDetails &&
+      tokenDetails.tokendevice
+    ) {
       const message = `${username} comentou no seu evento ${eventName}: "${comment}"`;
       const title = "Novo comentário";
       console.log("Message:", message);
 
       // Enviar a notificação push usando o Expo
-        sendPushNotification(
-          tokenDetails.tokendevice,
-          message,
-          title,
-          eventId,
-          eventName,
-          userId,
-          eventDetails.userid
-        );
+      sendPushNotification(
+        tokenDetails.tokendevice,
+        message,
+        title,
+        eventId,
+        eventName,
+        userId,
+        eventDetails.userid
+      );
     }
 
     client.release();
 
     // Enviar a resposta com o novo comentário
-    res.status(201).json(savedComment);
+    // res.status(201).json(savedComment)
+    //res without body
+    res.status(204).end();
   } catch (error) {
     console.error("Error adding comment:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -193,9 +212,12 @@ router.delete("/comments/:commentId", async (req, res) => {
     // Excluding the comentary
     await client.query("DELETE FROM comments WHERE id = $1", [commentId]);
 
+    // notify the other users
+    websocketServer.emit("deleteComment", { id: commentId, userId });
+
     client.release();
 
-    res.status(200).json({ message: "Comentário excluído com sucesso" });
+    res.status(204).end(); // response without body
   } catch (error) {
     console.error("Error deleting comment:", error);
     res.status(500).json({ error: "Internal server error" });
