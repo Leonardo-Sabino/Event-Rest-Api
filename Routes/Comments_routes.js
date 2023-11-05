@@ -62,10 +62,11 @@ const sendPushNotification = async (
   eventid,
   eventname,
   userId,
-  eventCreatorId
+  eventCreatorId,
+  notification_id
 ) => {
   let expo = new Expo();
-  const [id, date] = [uuidv4(), new Date()];
+  const [id, date] = [notification_id, new Date()];
   let messages = [];
   //to Verify if ExpoPushToken is a valid token
   if (!Expo.isExpoPushToken(expoPushToken)) {
@@ -85,7 +86,6 @@ const sendPushNotification = async (
       senderid: userId,
       receiverid: eventCreatorId,
       createat: date,
-      message: body,
     }, // to sent the event details to the front end
     title: title,
   });
@@ -110,8 +110,8 @@ const sendPushNotification = async (
     const client = await pool.connect();
 
     await client.query(
-      "INSERT INTO notifications (id,eventid,receiverid,senderid,eventname,message,createat) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [id, eventid, eventCreatorId, userId, eventname, body, date]
+      "INSERT INTO notifications (id,eventid,receiverid,senderid,eventname,title,message,createat) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [id, eventid, eventCreatorId, userId, eventname, title, body, date]
     );
     client.release();
 
@@ -124,7 +124,7 @@ const sendPushNotification = async (
 // to post a comment
 router.post("/comments", async (req, res) => {
   const { userId, eventId, username, eventName, comment } = req.body;
-  const [id, date] = [uuidv4(), new Date()];
+  const [id, date, notification_id] = [uuidv4(), new Date(), uuidv4()];
 
   const newComment = {
     id,
@@ -133,6 +133,7 @@ router.post("/comments", async (req, res) => {
     eventname: eventName,
     comment,
     createdat: date,
+    notification_id,
   };
 
   try {
@@ -140,8 +141,8 @@ router.post("/comments", async (req, res) => {
 
     // Salvar o comentário no banco de dados
     const commentResult = await client.query(
-      "INSERT INTO comments (id, userid, eventid, eventname, comment, createdat) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [id, userId, eventId, eventName, comment, date]
+      "INSERT INTO comments (id, userid, eventid, eventname, comment, createdat, notification_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+      [id, userId, eventId, eventName, comment, date, notification_id]
     );
 
     const savedComment = commentResult.rows[0];
@@ -183,7 +184,8 @@ router.post("/comments", async (req, res) => {
         eventId,
         eventName,
         userId,
-        eventDetails.userid
+        eventDetails.userid,
+        notification_id
       );
     }
 
