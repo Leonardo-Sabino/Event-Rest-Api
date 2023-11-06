@@ -59,17 +59,17 @@ router.put("/events/:id", async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query(
-      "UPDATE events SET longitude = $2, latitude = $3, eventname = $4, eventdescription = $5, eventphotograph = $6, starttime = $7, endtime = $8, eventdate = $9, price = $10, owner_contact = $11 WHERE id = $1",
+      "UPDATE events SET longitude = $2, latitude = $3, name = $4, description = $5, image = $6, starttime = $7, endtime = $8, date = $9, price = $10, owner_contact = $11 WHERE id = $1",
       [
         eventId,
         updatedEvent.longitude,
         updatedEvent.latitude,
-        updatedEvent.eventname,
-        updatedEvent.eventdescription,
-        updatedEvent.eventphotograph,
+        updatedEvent.name,
+        updatedEvent.description,
+        updatedEvent.image,
         updatedEvent.starttime,
         updatedEvent.endtime,
-        updatedEvent.eventdate,
+        updatedEvent.date,
         updatedEvent.price,
         updatedEvent.ownerContact,
       ]
@@ -136,38 +136,36 @@ router.put("/events/:id/state", async (req, res) => {
 router.post("/events", async (req, res) => {
   const id = uuidv4();
   const {
-    eventphotograph,
+    image,
     longitude,
     latitude,
-    eventname,
-    eventdescription,
+    name,
+    description,
     starttime,
     endtime,
-    eventdate,
+    date,
     price,
     userId,
     ownerContact,
   } = req.body;
 
-  console.log(eventname);
-
   try {
     const client = await pool.connect();
 
     const query = `
-      INSERT INTO events (id, longitude, latitude, eventname, eventdescription, eventphotograph, starttime, endtime, eventdate, price, userId, state, owner_contact)
+      INSERT INTO events (id, longitude, latitude, name, description, image, starttime, endtime, date, price, userId, state, owner_contact)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id `;
 
     const values = [
       id,
       longitude,
       latitude,
-      eventname,
-      eventdescription,
-      eventphotograph,
+      name,
+      description,
+      image,
       starttime,
       endtime,
-      eventdate,
+      date,
       price,
       userId,
       "pendente",
@@ -195,7 +193,7 @@ router.delete("/events/:eventId", async (req, res) => {
 
     // Check if the comment exists and if the user is the author of the comment
     const EventExists = await client.query(
-      "SELECT * FROM events WHERE id = $1 AND userId = $2",
+      "SELECT * FROM events WHERE id = $1 AND userid = $2",
       [eventId, userId]
     );
 
@@ -402,7 +400,7 @@ async function updateEventStates() {
     const query = `
         UPDATE events
         SET state = 'desativado'
-        WHERE eventdate < $1 AND state = 'ativo'
+        WHERE date < $1 AND state = 'ativo'
         RETURNING *
       `;
     const values = [currentDate];
