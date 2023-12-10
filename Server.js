@@ -75,6 +75,7 @@ app.delete("/events/:eventId", eventsRouter);
 
 //liked events
 app.get("/LikedEvents", eventsRouter);
+app.get("/event/likes/:id", eventsRouter);
 app.post("/events/likes/:id", eventsRouter);
 app.delete("/events/likes/:id", eventsRouter);
 

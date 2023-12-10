@@ -38,6 +38,39 @@ router.get("/going", async (req, res) => {
   }
 });
 
+router.get("/event/:id/peopleGoing", async (req, res) => {
+  const eventId = req.params.id;
+
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      "SELECT * FROM going WHERE event_id = $1",
+      [eventId]
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No one is going to this event!" });
+    }
+
+    return res
+      .status(200)
+      .json({ info: result.rows, numberOfPeopleGoing: result.rows.length });
+  } catch (error) {
+    console.log(error);
+    if (error.message.includes("invalid input syntax for type uuid:")) {
+      return res
+        .status(400)
+        .json({ message: "Id of the event has to be type uuid" });
+    }
+    return res.status(500).json({ message: "Internal Server Error" });
+  } finally {
+    client.release();
+  }
+});
+
 router.post("/going/:id", async (req, res) => {
   const eventId = req.params.id;
   const userId = req.body.id;

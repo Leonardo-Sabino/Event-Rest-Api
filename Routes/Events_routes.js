@@ -221,7 +221,7 @@ router.get("/LikedEvents", async (req, res) => {
   try {
     const client = await pool.connect();
 
-    // Query for liked events associated with the specified event ID
+    // Query to get all the liked events liked events
     const likedEvents = await client.query("SELECT * FROM liked_events");
 
     // Check if any liked events were found
@@ -235,6 +235,54 @@ router.get("/LikedEvents", async (req, res) => {
   } catch (error) {
     console.log("Error:", error);
     res.status(500).json({ error: "Internal error occured" });
+  }
+});
+
+//get liked event by id
+router.get("/event/likes/:id", async (req, res) => {
+  const eventId = req.params.id;
+  try {
+    const client = await pool.connect();
+
+    // Query for the event existence
+    const eventExists = await client.query(
+      "SELECT * FROM events WHERE id = $1",
+      [eventId]
+    );
+
+    // Check if the event exists
+    if (eventExists.rows.length === 0) {
+      client.release();
+      return res.status(404).json({
+        message: "Event not found! Check the id of the event",
+      });
+    }
+
+    // Query for liked events associated with the specified event ID
+    const likedEvents = await client.query(
+      "SELECT * FROM liked_events WHERE event_id = $1",
+      [eventId]
+    );
+
+    // Check if any liked events were found
+    if (likedEvents.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ message: "This event has no likes!" });
+    }
+
+    client.release();
+    return res.status(200).json({
+      likesInfo: likedEvents.rows,
+      likesCount: likedEvents.rows.length,
+    });
+  } catch (error) {
+    console.log("Error:", error.message);
+    if (error.message.includes("invalid input syntax for type uuid:")) {
+      return res
+        .status(400)
+        .json({ message: "Id of the event has to be a uuid" });
+    }
+    return res.status(500).json({ error: "Internal error occurred" });
   }
 });
 
@@ -254,7 +302,9 @@ router.post("/events/likes/:id", async (req, res) => {
 
     if (likedEvents.rows.length > 0) {
       client.release();
-      return res.status(400).json({ message: "Você já curtiu este evento" });
+      return res
+        .status(400)
+        .json({ message: "Event is already liked by you!" });
     }
 
     // Insert the liked event
@@ -267,7 +317,12 @@ router.post("/events/likes/:id", async (req, res) => {
     return res.status(200).json({ message: "Event Liked!" });
   } catch (error) {
     console.error("Error liking event:", error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error.message.includes("invalid input syntax for type uuid:")) {
+      return res
+        .status(400)
+        .json({ message: "Id of the event has to be type uuid" });
+    }
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -302,7 +357,12 @@ router.delete("/events/likes/:id", async (req, res) => {
     return res.status(200).json({ message: "Event disliked" });
   } catch (error) {
     console.error("Error disliking event:", error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error.message.includes("invalid input syntax for type uuid:")) {
+      return res
+        .status(400)
+        .json({ message: "Id of the event has to be type uuid" });
+    }
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -355,7 +415,12 @@ router.post("/events/favourites/:id", async (req, res) => {
     return res.status(200).json({ message: "Event added to favourites!" });
   } catch (error) {
     console.log("Error:", error);
-    res.status(500).json({ error: "Internal server error occurred!" });
+    if (error.message.includes("invalid input syntax for type uuid:")) {
+      return res
+        .status(400)
+        .json({ message: "Id of the event has to be type uuid" });
+    }
+    return res.status(500).json({ error: "Internal server error occurred!" });
   }
 });
 
@@ -385,37 +450,43 @@ router.delete("/events/favourites/:id", async (req, res) => {
     return res.status(200).json({ message: "Event removed from favourites!" });
   } catch (error) {
     console.log("Error:", error);
-    res.status(500).json({ error: "Internal server error occurred!" });
+    if (error.message.includes("invalid input syntax for type uuid:")) {
+      return res
+        .status(400)
+        .json({ message: "Id of the event has to be type uuid" });
+    }
+    return res.status(500).json({ error: "Internal server error occurred!" });
   }
 });
 
 //To verify the event and change the state
-async function updateEventStates() {
+async function updateEventStates(req, res) {
   const currentDate = new Date();
-
   try {
     const client = await pool.connect();
 
     // Query to fetch events with past date and "active" status
     const query = `
-        UPDATE events
-        SET state = 'desativado'
-        WHERE date < $1 AND state = 'ativo'
-        RETURNING *
-      `;
+      UPDATE events
+      SET state = 'desativado'
+      WHERE date < $1 AND state = 'ativo'
+      RETURNING *
+    `;
     const values = [currentDate];
 
     const result = await client.query(query, values);
-    const updatedEvents = result.rows;
+    const updatedEventsName = result.rows.map((event) => event.name);
 
-    //tratar os eventos atualizados conforme necessário
-
+    // Release the client connection
     client.release();
+
+    // Return all the events updated
+    console.log("Sucessfully updated this events states: ", updatedEventsName);
   } catch (error) {
-    console.error("Erro ao atualizar os eventos:", error);
+    console.error("Error updating events:", error);
+    return res.status(500).json({ error: "Error updating events" });
   }
 }
-
 // To schedule the function to run every 24 hours
 setInterval(updateEventStates, 24 * 60 * 60 * 1000);
 
