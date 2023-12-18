@@ -3,15 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
 const { Pool } = require("pg");
 const bodyParser = require("body-parser");
-
-// Create a new PostgreSQL pool
-const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "eventdb",
-  password: "19991703",
-  port: 5432, // Default PostgreSQL port
-});
+const pool = require("../pool");
 
 // Middlewares
 router.use(bodyParser.json());

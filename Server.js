@@ -1,7 +1,8 @@
 const express = require("express");
+require("dotenv").config();
 const bodyParser = require("body-parser");
 const app = express();
-const port = 3000;
+const port = process.env.PORT;
 const http = require("http"); // Import the http module
 const socketIo = require("socket.io");
 
@@ -13,6 +14,7 @@ const commentsRouter = require("./Routes/Comments_routes");
 const notificationsRouter = require("./Routes/Notifications_routes");
 const followersRouter = require("./Routes/Followers_routes");
 const peopleGoingRouter = require("./Routes/PeopleGoing_routes");
+const authRouter = require("./Routes/Auth");
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -63,7 +65,7 @@ websocketServer.on("connection", (socket) => {
   });
 });
 
-//route modules
+//routes
 
 //for the events
 app.get("/events", eventsRouter);
@@ -89,9 +91,12 @@ app.get("/nightclubs", nightclubsRouter);
 app.get("/nightclubs/:id", nightclubsRouter);
 app.post("/nightclubs", nightclubsRouter);
 
+//auth
+app.get("/signIn/:id", authRouter);
+app.post("/signup", authRouter);
+
 //for the users
 app.get("/users/", usersRouter);
-app.post("/signup", usersRouter);
 app.put("/users/:userId", usersRouter);
 app.delete("/users/:userId", usersRouter);
 app.post("/tokenDevice/:userId", usersRouter);

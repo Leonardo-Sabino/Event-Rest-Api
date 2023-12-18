@@ -1,111 +1,45 @@
 const express = require("express");
+require("dotenv").config();
 const router = express.Router();
-const { v4: uuidv4 } = require("uuid");
-const { Pool } = require("pg");
 const bodyParser = require("body-parser");
-
-// Create a new PostgreSQL pool
-const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "eventdb",
-  password: "19991703",
-  port: 5432, // Default PostgreSQL port
-});
+const pool = require("../pool");
+const authenticationToken = require("../middelware");
+const isValidEmail = require("../utiliz/emailValidation");
 
 // Middlewares
 router.use(bodyParser.json());
 
 //get all users
-router.get("/users", async (req, res) => {
+router.get("/users", authenticationToken, async (req, res) => {
   try {
     const query = "SELECT * FROM users";
     const result = await pool.query(query);
 
-    res.status(200).json(result.rows);
+    res
+      .status(200)
+      .json(result.rows.filter((user) => user.username === req.user.username));
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving users." });
   }
 });
 
-// images based on the gender selected
-const genderImages = {
-  masculino:
-    "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png",
-  feminino:
-    "https://w7.pngwing.com/pngs/129/292/png-transparent-female-avatar-girl-face-woman-user-flat-classy-users-icon.png",
-  outro: "https://img.freepik.com/free-icon/user_318-563642.jpg?w=360",
-};
-
-//post method
-router.post("/signup", async (req, res) => {
-  const newUser = {
-    username: req.body.username,
-    email: req.body.email,
-    password: req.body.password,
-    gender: req.body.gender,
-  };
-
-  try {
-    const client = await pool.connect();
-
-    // // set user default image based on the gender picked
-    const userimage =
-      genderImages[newUser.gender] ||
-      "https://img.freepik.com/free-icon/user_318-563642.jpg?w=360";
-
-    // Checks if the user already exists in the database
-    const userExists = await client.query(
-      "SELECT * FROM users WHERE username = $1",
-      [newUser.username]
-    );
-
-    if (userExists.rows.length > 0) {
-      // if username already exists
-      client.release();
-      return res
-        .status(400)
-        .json({ error_message: "Esse nome de usuário já está em uso." });
-    }
-
-    // Generate a random token and id for the new user using uuid
-    const [token, id] = [uuidv4(), uuidv4()];
-
-    // Insert the new user into the database with the generated token
-    await client.query(
-      "INSERT INTO users (id,username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [
-        id,
-        newUser.username,
-        newUser.email,
-        newUser.password,
-        newUser.gender,
-        userimage,
-        token,
-      ]
-    );
-
-    // Emit the "newUser" event to notify all connected clients about the new user(websocketServer is a global variable)
-    websocketServer.emit("newUser", { id, ...newUser, token });
-
-    client.release();
-
-    // Return the token along with the user information
-    res.json({
-      message: "User added successfully!",
-      user: { ...newUser, token },
-    });
-  } catch (error) {
-    console.error("Error adding user:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 //put method to update the user info
-router.put("/users/:id", async (req, res) => {
+router.put("/users/:id", authenticationToken, async (req, res) => {
   let userId = req.params.id;
   const updatedUser = req.body;
+
+  if (!updatedUser.username || !updatedUser.email || !updatedUser.password) {
+    return res.status(400).json({
+      error_message: "Username, email and password are required fields.",
+    });
+  }
+
+  if (updatedUser.email && !isValidEmail(updatedUser.email)) {
+    return res.status(400).json({
+      error_message: "This email is not valid, eg: name@gmail.com",
+    });
+  }
 
   try {
     const client = await pool.connect();
@@ -133,8 +67,8 @@ router.put("/users/:id", async (req, res) => {
 });
 
 // delete user id based on the user's id
-router.delete("/users/:userId", async (req, res) => {
-  const userId = req.params.userId;
+router.delete("/users/:id", authenticationToken, async (req, res) => {
+  const userId = req.params.id;
 
   try {
     const client = await pool.connect();
