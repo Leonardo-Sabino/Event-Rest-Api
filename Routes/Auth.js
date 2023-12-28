@@ -8,7 +8,6 @@ const jwt = require("jsonwebtoken");
 const isValidEmail = require("../utiliz/emailValidation");
 const authenticationToken = require("../middelware");
 const { genderOptions, genderImages } = require("../utiliz/gender");
-const bcrypt = require("bcrypt");
 const { hashPassword, comparePassword } = require("../utiliz/passEncryption");
 
 // Middlewares
@@ -34,13 +33,13 @@ router.post("/signup", async (req, res) => {
     });
   }
   if (!newUser.gender) {
-    newUser.gender = "other";
+    return res.status(400).json({ error: "Your gender is required" });
   } else if (
     newUser.gender &&
     !genderOptions.includes(newUser.gender.toLowerCase())
   ) {
     return res.status(400).json({
-      error_message: `'${newUser.gender}' is not valid, eg: 'male' or 'female' or 'other`,
+      error_message: `${newUser.gender} is not valid, eg: 'male' or 'female' or 'other`,
     });
   } else {
     newUser.gender = newUser.gender.toLowerCase();
@@ -60,8 +59,8 @@ router.post("/signup", async (req, res) => {
       [newUser.username]
     );
 
+    // if username already exists
     if (userExists.rows.length > 0) {
-      // if username already exists
       client.release();
       return res
         .status(400)
@@ -133,7 +132,6 @@ router.get("/signin", authenticationToken, async (req, res) => {
       email: user.rows[0].email,
       userimage: user.rows[0].userimage,
       gender: user.rows[0].gender,
-      tokendevice: user.rows[0].tokendevice,
     };
 
     if (match) {
