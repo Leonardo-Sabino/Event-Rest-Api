@@ -9,6 +9,7 @@ const isValidEmail = require("../utiliz/emailValidation");
 const authenticationToken = require("../middelware");
 const { genderOptions, genderImages } = require("../utiliz/gender");
 const { hashPassword, comparePassword } = require("../utiliz/passEncryption");
+const ROLES_LIST = require("../config/roles_list");
 
 // Middlewares
 router.use(bodyParser.json());
@@ -71,13 +72,18 @@ router.post("/signup", async (req, res) => {
     const id = uuidv4();
 
     //to get the token from jwt
-    const token = jwt.sign(newUser, process.env.ACCESS_TOKEN_SECRET);
+    const normalUserRole = ROLES_LIST.User;
+
+    const token = jwt.sign(
+      { ...newUser, userimage, id, normalUserRole },
+      process.env.ACCESS_TOKEN_SECRET
+    );
 
     const hashedPassword = await hashPassword(newUser.password);
 
     // Insert the new user into the database with the generated token
     await client.query(
-      "INSERT INTO users (id,username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      "INSERT INTO users (id,username,email,password,gender,userimage,token,role_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
       [
         id,
         newUser.username,
@@ -86,11 +92,18 @@ router.post("/signup", async (req, res) => {
         newUser.gender,
         userimage,
         token,
+        normalUserRole,
       ]
     );
 
     // Emit the "newUser" event to notify all connected clients about the new user(websocketServer is a global variable)
-    websocketServer.emit("newUser", { id, ...newUser, token });
+    websocketServer.emit("newUser", {
+      id,
+      ...newUser,
+      userimage,
+      normalUserRole,
+      token,
+    });
 
     client.release();
 
@@ -127,13 +140,12 @@ router.get("/signin", authenticationToken, async (req, res) => {
 
     //to remove sensitive info from the response
     const sanitizedUser = {
-      id: user.rows[0].id,
-      username: user.rows[0].username,
-      email: user.rows[0].email,
-      userimage: user.rows[0].userimage,
-      gender: user.rows[0].gender,
+      id: req.user.id,
+      username: req.user.username,
+      email: req.user.email,
+      gender: req.user.gender,
+      userimage: req.user.userimage,
     };
-
     if (match) {
       res.status(200).json(sanitizedUser);
     } else {

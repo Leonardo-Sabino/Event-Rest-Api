@@ -4,12 +4,14 @@ const { v4: uuidv4 } = require("uuid");
 const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const pool = require("../pool");
+const checkEventStatePermission = require("../utiliz/checkPermissions");
+const authenticationToken = require("../middelware");
 
 // Middlewares
 router.use(bodyParser.json());
 
 // Route to get all events
-router.get("/events", async (req, res) => {
+router.get("/events", authenticationToken, async (req, res) => {
   try {
     const client = await pool.connect();
     const result = await client.query("SELECT * FROM events");
@@ -23,7 +25,7 @@ router.get("/events", async (req, res) => {
 });
 
 // Route to get a single event by ID
-router.get("/events/:id", async (req, res) => {
+router.get("/events/:id", authenticationToken, async (req, res) => {
   const eventId = req.params.id;
   try {
     const client = await pool.connect();
@@ -44,7 +46,7 @@ router.get("/events/:id", async (req, res) => {
 });
 
 // Route to update an event by ID (getting error)
-router.put("/events/:id", async (req, res) => {
+router.put("/events/:id", authenticationToken, async (req, res) => {
   const eventId = req.params.id;
   const updatedEvent = req.body;
   const { userId } = updatedEvent;
@@ -87,24 +89,32 @@ router.put("/events/:id", async (req, res) => {
 });
 
 //to update the state of the event
-router.put("/events/:id/state", async (req, res) => {
-  const eventId = req.params.id;
-  const newState = req.body.state;
+router.put(
+  "/events/:id/state",
+  checkEventStatePermission,
+  authenticationToken,
+  async (req, res) => {
+    const eventId = req.params.id;
+    const newState = req.body.state;
+    try {
+      if (!newState || typeof newState !== "string") {
+        return res
+          .status(400)
+          .json({ error: "A valid new state has to be provided" });
+      }
 
-  try {
-    const client = await pool.connect();
+      const client = await pool.connect();
 
-    // Check if the event exists
-    const existingEvent = await client.query(
-      "SELECT * FROM events WHERE id = $1",
-      [eventId]
-    );
+      // Check if the event exists
+      const existingEvent = await client.query(
+        "SELECT * FROM events WHERE id = $1",
+        [eventId]
+      );
 
-    if (existingEvent.rows.length === 0) {
-      // Event not found
-      return res.status(404).json({ error: "Event not found" });
-    } else {
-      // Update the state of the event
+      if (existingEvent.rows.length === 0) {
+        // Event not found
+        return res.status(404).json({ error: "Event not found" });
+      }
       await client.query("UPDATE events SET state = $1 WHERE id = $2", [
         newState,
         eventId,
@@ -114,18 +124,18 @@ router.put("/events/:id/state", async (req, res) => {
 
       res.json({
         message: "Event state updated successfully!",
-        eventId,
+        eventName: existingEvent.rows[0].name,
         newState,
       });
+    } catch (error) {
+      console.error("Error updating event state:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-  } catch (error) {
-    console.error("Error updating event state:", error);
-    res.status(500).json({ error: "Internal server error" });
   }
-});
+);
 
 // Route to add a new event
-router.post("/events", async (req, res) => {
+router.post("/events", authenticationToken, async (req, res) => {
   const id = uuidv4();
   const {
     image,
@@ -460,8 +470,8 @@ async function updateEventStates(req, res) {
     // Query to fetch events with past date and "active" status
     const query = `
       UPDATE events
-      SET state = 'desativado'
-      WHERE date < $1 AND state = 'ativo'
+      SET state = 'deactivated'
+      WHERE date < $1 AND state = 'active'
       RETURNING *
     `;
     const values = [currentDate];
