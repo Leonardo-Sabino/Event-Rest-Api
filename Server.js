@@ -92,7 +92,7 @@ app.get("/nightclubs/:id", nightclubsRouter);
 app.post("/nightclubs", nightclubsRouter);
 
 //auth
-app.get("/signIn/:id", authRouter);
+app.get("/signin", authRouter);
 app.post("/signup", authRouter);
 
 //for the users

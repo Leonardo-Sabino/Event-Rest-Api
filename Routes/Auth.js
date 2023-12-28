@@ -8,6 +8,8 @@ const jwt = require("jsonwebtoken");
 const isValidEmail = require("../utiliz/emailValidation");
 const authenticationToken = require("../middelware");
 const { genderOptions, genderImages } = require("../utiliz/gender");
+const bcrypt = require("bcrypt");
+const { hashPassword, comparePassword } = require("../utiliz/passEncryption");
 
 // Middlewares
 router.use(bodyParser.json());
@@ -22,7 +24,7 @@ router.post("/signup", async (req, res) => {
 
   if (!newUser.username || !newUser.email || !newUser.password) {
     return res.status(400).json({
-      error_message: "Username, email and password are required fields.",
+      error: "username, email and password are required",
     });
   }
 
@@ -72,6 +74,8 @@ router.post("/signup", async (req, res) => {
     //to get the token from jwt
     const token = jwt.sign(newUser, process.env.ACCESS_TOKEN_SECRET);
 
+    const hashedPassword = await hashPassword(newUser.password);
+
     // Insert the new user into the database with the generated token
     await client.query(
       "INSERT INTO users (id,username,email,password,gender,userimage,token) VALUES ($1, $2, $3, $4, $5, $6, $7)",
@@ -79,7 +83,7 @@ router.post("/signup", async (req, res) => {
         id,
         newUser.username,
         newUser.email,
-        newUser.password,
+        hashedPassword,
         newUser.gender,
         userimage,
         token,
@@ -99,11 +103,53 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.get("/signIn/:id", authenticationToken, async (req, res) => {
-  const userId = req.params.id;
+router.get("/signin", authenticationToken, async (req, res) => {
+  const { username, password: receivedPassword } = req.body;
+
+  if (!username || !receivedPassword) {
+    return res
+      .status(400)
+      .json({ error: "username and password are required" });
+  }
 
   try {
-  } catch (error) {}
+    const client = await pool.connect();
+    const user = await client.query(`SELECT * FROM users WHERE username=$1`, [
+      username,
+    ]);
+
+    if (user.rows.length === 0) {
+      return res.status(404).json({ error: `${username} not found` });
+    }
+
+    const userdbpassword = user.rows[0].password;
+
+    const match = await comparePassword(receivedPassword, userdbpassword);
+
+    //to remove sensitive info from the response
+    const sanitizedUser = {
+      id: user.rows[0].id,
+      username: user.rows[0].username,
+      email: user.rows[0].email,
+      userimage: user.rows[0].userimage,
+      gender: user.rows[0].gender,
+      tokendevice: user.rows[0].tokendevice,
+    };
+
+    if (match) {
+      res.status(200).json(sanitizedUser);
+    } else {
+      res.status(401).json({ error: "Invalid credentials" });
+    }
+  } catch (error) {
+    if (error.message.includes("id")) {
+      return res
+        .status(400)
+        .json({ error: "id is not valid, it should be a uuid" });
+    } else {
+      return res.status(error.code || 500).json({ error: error.message });
+    }
+  }
 });
 
 module.exports = router;
