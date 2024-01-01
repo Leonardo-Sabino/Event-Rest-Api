@@ -11,13 +11,37 @@ router.use(bodyParser.json());
 
 //get all users
 router.get("/users", authenticationToken, async (req, res) => {
-  try {
-    const query = "SELECT * FROM users";
-    const result = await pool.query(query);
+  const { page = 1, limit = 10, name } = req.query;
 
-    res
-      .status(200)
-      .json(result.rows.filter((user) => user.username === req.user.username));
+  try {
+    const offset = (page - 1) * limit;
+    const query = `SELECT * FROM users ORDER BY id OFFSET $1 LIMIT $2`;
+    const result = await pool.query(query, [offset, limit]);
+    const sanitizedUsers = result.rows.map(
+      ({ id, username, email, gender }) => ({
+        id,
+        username,
+        email,
+        gender,
+        // userimage: user.userimage,
+      })
+    );
+
+    let filteredUsers = name
+      ? result.rows
+          .filter(({ username }) =>
+            username.toLowerCase().includes(name.toLowerCase())
+          )
+          .map(({ id, username, email, gender }) => ({
+            id,
+            username,
+            email,
+            gender,
+            // userimage: user.userimage,
+          }))
+      : sanitizedUsers;
+
+    res.status(200).json(filteredUsers);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving users." });

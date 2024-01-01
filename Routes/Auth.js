@@ -124,6 +124,10 @@ router.get("/signin", authenticationToken, async (req, res) => {
       .json({ error: "username and password are required" });
   }
 
+  if (username && typeof username !== "string") {
+    res.status(400).json({ error: "username should be a string" });
+  }
+
   try {
     const client = await pool.connect();
     const user = await client.query(`SELECT * FROM users WHERE username=$1`, [

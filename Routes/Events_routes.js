@@ -12,12 +12,97 @@ router.use(bodyParser.json());
 
 // Route to get all events
 router.get("/events", authenticationToken, async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    startTime,
+    endTime,
+    name,
+    maxPrice,
+    minPrice,
+  } = req.query;
   try {
+    const offset = (page - 1) * limit;
+
     const client = await pool.connect();
-    const result = await client.query("SELECT * FROM events");
+
+    const query = `SELECT * FROM events ORDER BY id OFFSET $1 LIMIT $2`;
+
+    const result = await client.query(query, [offset, limit]);
+
     const events = result.rows;
+    let filteredEvents = [...events];
+
+    if (startTime) {
+      const timePattern = /^\d{1,2}:\d{2}(:\d{2})?$/;
+      if (!timePattern.test(startTime)) {
+        return res.status(400).json({
+          error:
+            "Invalid format for the time. Please use the format hh:mm or hh:mm:ss",
+        });
+      } else {
+        let searchQuery = startTime;
+        if (startTime.split(":").length === 2) {
+          searchQuery += ":00";
+        }
+        filteredEvents = filteredEvents.filter(
+          (event) => event.starttime === searchQuery
+        );
+      }
+    }
+
+    if (endTime) {
+      const timePattern = /^\d{1,2}:\d{2}(:\d{2})?$/;
+      if (!timePattern.test(endTime)) {
+        return res.status(400).json({
+          error:
+            "Invalid format for the time. Please use the format hh:mm or hh:mm:ss",
+        });
+      } else {
+        let searchQuery = endTime;
+        if (endTime.split(":").length === 2) {
+          searchQuery += ":00";
+        }
+        filteredEvents = filteredEvents.filter(
+          (event) => event.endtime === searchQuery
+        );
+      }
+    }
+
+    if (name) {
+      const searchQuery = name.toLowerCase();
+      filteredEvents = filteredEvents.filter((event) =>
+        event.name.toLowerCase().includes(searchQuery)
+      );
+    }
+
+    if (maxPrice && minPrice) {
+      filteredEvents = filteredEvents.filter((event) => {
+        const eventPrice = parseInt(event.price);
+        const min = parseInt(minPrice);
+        const max = parseInt(maxPrice);
+
+        return eventPrice >= min && eventPrice <= max;
+      });
+    } else if (maxPrice) {
+      filteredEvents = filteredEvents.filter(
+        (event) => parseInt(event.price) <= parseInt(maxPrice)
+      );
+    } else if (minPrice) {
+      filteredEvents = filteredEvents.filter(
+        (event) => parseInt(event.price) >= parseInt(minPrice)
+      );
+    }
+
     client.release();
-    res.json(events);
+    res.json(
+      filteredEvents.map((event) => {
+        return {
+          ...event,
+          image: event.image.substring(0, 20),
+        };
+      })
+    );
   } catch (error) {
     console.error("Error fetching events:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -170,7 +255,7 @@ router.post("/events", authenticationToken, async (req, res) => {
       date,
       price,
       userId,
-      "pendente",
+      "pending",
       ownerContact,
     ];
 
@@ -186,9 +271,9 @@ router.post("/events", authenticationToken, async (req, res) => {
 });
 
 // Route to delete an event by ID
-router.delete("/events/:eventId", async (req, res) => {
-  const eventId = req.params.eventId;
-  const userId = req.body.userId; // ID do usuário passado no corpo da solicitação
+router.delete("/events/:id", authenticationToken, async (req, res) => {
+  const eventId = req.params.id;
+  const userId = req.user.id;
 
   try {
     const client = await pool.connect();
@@ -219,79 +304,101 @@ router.delete("/events/:eventId", async (req, res) => {
 
 //liked events
 
-router.get("/LikedEvents", async (req, res) => {
+router.get("/events/likes/me", authenticationToken, async (req, res) => {
+  const userId = req.user.id;
   try {
     const client = await pool.connect();
 
-    // Query to get all the liked events liked events
-    const likedEvents = await client.query("SELECT * FROM liked_events");
+    const likedEvents = await client.query(
+      "SELECT * FROM liked_events WHERE user_id = $1",
+      [userId]
+    );
 
-    // Check if any liked events were found
     if (likedEvents.rows.length === 0) {
       client.release();
-      return res.status(404).json({ error_message: "Liked events not found" });
+      return res.status(404).json({ error: "No liked events found" });
     }
 
+    const eventIds = likedEvents.rows.map((item) => item.event_id);
+
+    const eventsQuery = `SELECT * FROM events WHERE id = ANY($1)`;
+
+    const events = await client.query(eventsQuery, [eventIds]);
+
+    const formattedEvents = events.rows.map((event) => ({
+      ...event,
+      image: event.image.substring(0, 20),
+    }));
+
     client.release();
-    return res.status(200).json(likedEvents.rows); // Return the result as json
+
+    return res.status(200).json({
+      events: formattedEvents,
+      count: formattedEvents.length,
+    });
   } catch (error) {
-    console.log("Error:", error);
-    res.status(500).json({ error: "Internal error occured" });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Internal server error occurred" });
   }
 });
 
 //get liked event by id
-router.get("/event/likes/:id", async (req, res) => {
-  const eventId = req.params.id;
+router.get("/events/all/likes", authenticationToken, async (req, res) => {
   try {
     const client = await pool.connect();
 
-    // Query for the event existence
-    const eventExists = await client.query(
-      "SELECT * FROM events WHERE id = $1",
-      [eventId]
-    );
+    // Query to retrieve liked events
+    const likedEvents = await client.query(`SELECT * FROM liked_events`);
 
-    // Check if the event exists
-    if (eventExists.rows.length === 0) {
-      client.release();
-      return res.status(404).json({
-        message: "Event not found! Check the id of the event",
-      });
-    }
-
-    // Query for liked events associated with the specified event ID
-    const likedEvents = await client.query(
-      "SELECT * FROM liked_events WHERE event_id = $1",
-      [eventId]
-    );
-
-    // Check if any liked events were found
+    // Check if any liked events exist
     if (likedEvents.rows.length === 0) {
       client.release();
-      return res.status(404).json({ message: "This event has no likes!" });
+      return res.status(404).json({ message: "No liked events found" });
     }
+
+    const likedEventIds = likedEvents.rows.map((item) => item.event_id);
+
+    // Query to fetch details of the liked events using their IDs
+    const events = await client.query(
+      `SELECT * FROM events WHERE id = ANY($1)`,
+      [likedEventIds]
+    );
+
+    const data = events.rows.map((event) => {
+      const likedEventsForEvent = likedEvents.rows.filter(
+        (likedEvent) => likedEvent.event_id === event.id
+      );
+
+      const userIds = likedEventsForEvent.map(
+        (likedEvent) => likedEvent.user_id
+      );
+
+      return {
+        eventId: event.id,
+        userIds: userIds,
+        count: userIds.length,
+        isLikedByMe: userIds.includes(req.user.id),
+      };
+    });
 
     client.release();
     return res.status(200).json({
-      likesInfo: likedEvents.rows,
-      likesCount: likedEvents.rows.length,
+      data,
+      countAllLikedEvents: data.length,
     });
   } catch (error) {
-    console.log("Error:", error.message);
+    console.error("Error:", error);
     if (error.message.includes("invalid input syntax for type uuid:")) {
-      return res
-        .status(400)
-        .json({ message: "Id of the event has to be a uuid" });
+      return res.status(400).json({ message: "Event id must be a UUID" });
     }
-    return res.status(500).json({ error: "Internal error occurred" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
 //add like
-router.post("/events/likes/:id", async (req, res) => {
+router.post("/events/:id/likes", authenticationToken, async (req, res) => {
   const eventId = req.params.id;
-  const userId = req.body.userId;
+  const userId = req.user.id;
 
   try {
     const client = await pool.connect();
@@ -305,8 +412,8 @@ router.post("/events/likes/:id", async (req, res) => {
     if (likedEvents.rows.length > 0) {
       client.release();
       return res
-        .status(400)
-        .json({ message: "Event is already liked by you!" });
+        .status(409)
+        .json({ message: "This event is already liked by you!" });
     }
 
     // Insert the liked event
@@ -316,7 +423,7 @@ router.post("/events/likes/:id", async (req, res) => {
     );
 
     client.release();
-    return res.status(200).json({ message: "Event Liked!" });
+    return res.status(200).json({ message: "Event sucessfully liked!" });
   } catch (error) {
     console.error("Error liking event:", error);
     if (error.message.includes("invalid input syntax for type uuid:")) {
@@ -329,9 +436,9 @@ router.post("/events/likes/:id", async (req, res) => {
 });
 
 //remove like from events
-router.delete("/events/likes/:id", async (req, res) => {
+router.delete("/events/:id/likes", authenticationToken, async (req, res) => {
   const eventId = req.params.id;
-  const userId = req.body.userId;
+  const userId = req.user.id;
 
   try {
     const client = await pool.connect();
@@ -344,9 +451,7 @@ router.delete("/events/likes/:id", async (req, res) => {
 
     if (result.rows.length === 0) {
       client.release();
-      return res
-        .status(404)
-        .json({ message: "Event not found in liked events" });
+      return res.status(404).json({ message: "Event not found" });
     }
 
     // Delete the liked event
@@ -356,7 +461,7 @@ router.delete("/events/likes/:id", async (req, res) => {
     );
 
     client.release();
-    return res.status(200).json({ message: "Event disliked" });
+    return res.status(200).json({ message: "Event sucessfully disliked" });
   } catch (error) {
     console.error("Error disliking event:", error);
     if (error.message.includes("invalid input syntax for type uuid:")) {
@@ -369,30 +474,51 @@ router.delete("/events/likes/:id", async (req, res) => {
 });
 
 //fourites events
-router.get("/FavEvents", async (req, res) => {
+router.get("/events/favorites/me", authenticationToken, async (req, res) => {
+  const userId = req.user.id;
   try {
     const client = await pool.connect();
-    const favorites = await client.query("SELECT * FROM fav_events");
 
-    //to see if there is favourites events
-    if (favorites.rows.length === 0) {
+    const favoriteEventsQuery = `
+      SELECT event_id FROM fav_events WHERE user_id = $1
+    `;
+    const favoriteEvents = await client.query(favoriteEventsQuery, [userId]);
+
+    if (favoriteEvents.rows.length === 0) {
       client.release();
-      return res
-        .status(400)
-        .json({ error_message: "No favourites events found" });
+      return res.status(404).json({
+        error: "No favorite events found",
+      });
     }
+
+    const eventIds = favoriteEvents.rows.map((fav) => fav.event_id);
+
+    const eventsQuery = `
+      SELECT * FROM events WHERE id = ANY($1)
+    `;
+    const events = await client.query(eventsQuery, [eventIds]);
+
+    const formattedEvents = events.rows.map((event) => ({
+      ...event,
+      image: event.image.substring(0, 20),
+    }));
+
     client.release();
-    res.status(200).json(favorites.rows);
+
+    res.status(200).json({
+      events: formattedEvents,
+      count: formattedEvents.length,
+    });
   } catch (error) {
-    console.log("Error:", error);
-    res.status(500).json({ error: "Internal error occured" });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Internal error occurred" });
   }
 });
 
 //add to favourites
-router.post("/events/favourites/:id", async (req, res) => {
+router.post("/events/:id/favourites", authenticationToken, async (req, res) => {
   const eventId = req.params.id;
-  const userId = req.body.userId;
+  const userId = req.user.id;
 
   try {
     const client = await pool.connect();
@@ -403,9 +529,9 @@ router.post("/events/favourites/:id", async (req, res) => {
 
     if (favorites.rows.length > 0) {
       client.release();
-      return res
-        .status(400)
-        .json({ error_message: "You already have this event as a favorite" });
+      return res.status(409).json({
+        error: "You already have this event in your favourite events list",
+      });
     }
 
     await client.query(
@@ -414,7 +540,9 @@ router.post("/events/favourites/:id", async (req, res) => {
     );
 
     client.release();
-    return res.status(200).json({ message: "Event added to favourites!" });
+    return res
+      .status(200)
+      .json({ message: "Event sucessfully added to favourites!" });
   } catch (error) {
     console.log("Error:", error);
     if (error.message.includes("invalid input syntax for type uuid:")) {
@@ -427,39 +555,46 @@ router.post("/events/favourites/:id", async (req, res) => {
 });
 
 //remove from favorites
-router.delete("/events/favourites/:id", async (req, res) => {
-  const eventId = req.params.id;
-  const userId = req.body.userId;
+router.delete(
+  "/events/:id/favourites",
+  authenticationToken,
+  async (req, res) => {
+    const eventId = req.params.id;
+    const userId = req.user.id;
 
-  try {
-    const client = await pool.connect();
-    const favorites = await client.query(
-      "SELECT * FROM fav_events WHERE event_id = $1 AND user_id = $2",
-      [eventId, userId]
-    );
+    try {
+      const client = await pool.connect();
 
-    if (favorites.rows.length === 0) {
+      const deleteQuery = `
+        DELETE FROM fav_events
+        WHERE event_id = $1 AND user_id = $2
+        RETURNING *
+      `;
+
+      const deletedEvent = await client.query(deleteQuery, [eventId, userId]);
+
       client.release();
-      return res.status(404).json({ error_message: "Event does not exist" });
-    }
 
-    await client.query(
-      "DELETE FROM fav_events WHERE event_id = $1 AND user_id = $2",
-      [eventId, userId]
-    );
+      if (deletedEvent.rowCount === 0) {
+        return res.status(404).json({ error_message: "Event does not exist" });
+      }
 
-    client.release();
-    return res.status(200).json({ message: "Event removed from favourites!" });
-  } catch (error) {
-    console.log("Error:", error);
-    if (error.message.includes("invalid input syntax for type uuid:")) {
       return res
-        .status(400)
-        .json({ message: "Id of the event has to be type uuid" });
+        .status(200)
+        .json({ message: "Event removed from favourites!" });
+    } catch (error) {
+      console.error("Error:", error);
+
+      if (error.message.includes("invalid input syntax for type uuid:")) {
+        return res
+          .status(400)
+          .json({ message: "Id of the event has to be type uuid" });
+      }
+
+      return res.status(500).json({ error: "Internal server error occurred!" });
     }
-    return res.status(500).json({ error: "Internal server error occurred!" });
   }
-});
+);
 
 //To verify the event and change the state
 async function updateEventStates(req, res) {

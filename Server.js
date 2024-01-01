@@ -71,20 +71,20 @@ websocketServer.on("connection", (socket) => {
 app.get("/events", eventsRouter);
 app.get("/events/:id", eventsRouter);
 app.post("/events", eventsRouter);
-app.put("/events/:eventId", eventsRouter);
+app.put("/events/:id", eventsRouter);
 app.put("/events/:id/state", eventsRouter);
-app.delete("/events/:eventId", eventsRouter);
+app.delete("/events/:id", eventsRouter);
 
 //liked events
-app.get("/LikedEvents", eventsRouter);
-app.get("/event/likes/:id", eventsRouter);
-app.post("/events/likes/:id", eventsRouter);
-app.delete("/events/likes/:id", eventsRouter);
+app.get("/events/likes/me", eventsRouter);
+app.get("/events/all/likes", eventsRouter);
+app.post("/events/:id/likes", eventsRouter);
+app.delete("/events/:id/likes", eventsRouter);
 
 //favourites events
-app.get("/FavEvents", eventsRouter);
-app.post("/events/favourites/:id", eventsRouter);
-app.delete("/events/favourites/:id", eventsRouter);
+app.get("/events/favorites/me", eventsRouter);
+app.post("/events/:id/favourites", eventsRouter);
+app.delete("/events/:id/favourites", eventsRouter);
 
 //for the nightclubs
 app.get("/nightclubs", nightclubsRouter);
