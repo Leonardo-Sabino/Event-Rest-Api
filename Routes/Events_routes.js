@@ -382,10 +382,7 @@ router.get("/events/all/likes", authenticationToken, async (req, res) => {
     });
 
     client.release();
-    return res.status(200).json({
-      data,
-      countAllLikedEvents: data.length,
-    });
+    return res.status(200).json(data);
   } catch (error) {
     console.error("Error:", error);
     if (error.message.includes("invalid input syntax for type uuid:")) {
