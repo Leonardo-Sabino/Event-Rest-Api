@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const { Expo } = require("expo-server-sdk");
-const pool = require("../pool");
+const pool = require("../db/pool");
 
 // Middlewares
 router.use(bodyParser.json());

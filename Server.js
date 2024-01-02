@@ -97,9 +97,9 @@ app.post("/signup", authRouter);
 
 //for the users
 app.get("/users/", usersRouter);
-app.put("/users/:userId", usersRouter);
-app.delete("/users/:userId", usersRouter);
-app.post("/tokenDevice/:userId", usersRouter);
+app.put("/users/me", usersRouter);
+app.delete("/users/me", usersRouter);
+app.post("/tokenDevice/me", usersRouter);
 
 //for the comments
 app.get("/comments/:eventId", commentsRouter);

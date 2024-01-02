@@ -3,7 +3,7 @@ require("dotenv").config();
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
 const bodyParser = require("body-parser");
-const pool = require("../pool");
+const pool = require("../db/pool");
 const jwt = require("jsonwebtoken");
 const isValidEmail = require("../utiliz/emailValidation");
 const authenticationToken = require("../middelware");
@@ -22,9 +22,16 @@ router.post("/signup", async (req, res) => {
     gender: req.body.gender,
   };
 
-  if (!newUser.username || !newUser.email || !newUser.password) {
+  const client = await pool.connect();
+
+  if (
+    !newUser.username ||
+    !newUser.email ||
+    !newUser.password ||
+    !newUser.gender
+  ) {
     return res.status(400).json({
-      error: "username, email and password are required",
+      error: "username, email, password and gender are required",
     });
   }
 
@@ -33,51 +40,47 @@ router.post("/signup", async (req, res) => {
       error_message: "This email is not valid, eg: name@gmail.com",
     });
   }
-  if (!newUser.gender) {
-    return res.status(400).json({ error: "Your gender is required" });
-  } else if (
-    newUser.gender &&
-    !genderOptions.includes(newUser.gender.toLowerCase())
-  ) {
+  if (newUser.gender && !genderOptions.includes(newUser.gender.toLowerCase())) {
     return res.status(400).json({
-      error_message: `${newUser.gender} is not valid, eg: 'male' or 'female' or 'other`,
+      error_message: `${newUser.gender} is not valid, e.g. 'male' or 'female' or 'other`,
     });
   } else {
     newUser.gender = newUser.gender.toLowerCase();
   }
 
   try {
-    const client = await pool.connect();
-
-    // // set user default image based on the gender picked
-    const userimage =
-      genderImages[newUser.gender] ||
-      "https://img.freepik.com/free-icon/user_318-563642.jpg?w=360";
+    // set user default image based on the gender picked
+    const userimage = genderImages[newUser.gender];
 
     // Checks if the user already exists in the database
-    const userExists = await client.query(
+    const userName = await client.query(
       "SELECT * FROM users WHERE username = $1",
       [newUser.username]
     );
 
+    const emailExists = await client.query(
+      `SELECT * FROM users WHERE email = $1`,
+      [newUser.email]
+    );
+
     // if username already exists
-    if (userExists.rows.length > 0) {
-      client.release();
-      return res
-        .status(400)
-        .json({ error_message: "This username is already in use" });
+    if (userName.rows.length > 0) {
+      return res.status(400).json({ error: "This username is already in use" });
+    }
+
+    if (emailExists.rows.length > 0) {
+      return res.status(400).json({
+        error: "This email is already in use",
+      });
     }
 
     // Generate a random id for the new user using uuid
     const id = uuidv4();
 
     //to get the token from jwt
-    const normalUserRole = ROLES_LIST.User;
+    const role = ROLES_LIST.User;
 
-    const token = jwt.sign(
-      { ...newUser, userimage, id, normalUserRole },
-      process.env.ACCESS_TOKEN_SECRET
-    );
+    const token = jwt.sign({ id, role }, process.env.ACCESS_TOKEN_SECRET);
 
     const hashedPassword = await hashPassword(newUser.password);
 
@@ -92,7 +95,7 @@ router.post("/signup", async (req, res) => {
         newUser.gender,
         userimage,
         token,
-        normalUserRole,
+        role,
       ]
     );
 
@@ -101,17 +104,17 @@ router.post("/signup", async (req, res) => {
       id,
       ...newUser,
       userimage,
-      normalUserRole,
+      role,
       token,
     });
-
-    client.release();
 
     // Returns the token
     res.json({ token });
   } catch (error) {
     console.error("Error adding user:", error);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
   }
 });
 
@@ -124,44 +127,46 @@ router.get("/signin", authenticationToken, async (req, res) => {
       .json({ error: "username and password are required" });
   }
 
-  if (username && typeof username !== "string") {
-    res.status(400).json({ error: "username should be a string" });
+  if (typeof username !== "string") {
+    return res.status(400).json({ error: "username should be a string" });
   }
 
   try {
     const client = await pool.connect();
-    const user = await client.query(`SELECT * FROM users WHERE username=$1`, [
+    const user = await client.query(`SELECT * FROM users WHERE username = $1`, [
       username,
     ]);
 
     if (user.rows.length === 0) {
-      return res.status(404).json({ error: `${username} not found` });
+      return res.status(404).json({ error: "This username does not exist" });
     }
 
     const userdbpassword = user.rows[0].password;
-
     const match = await comparePassword(receivedPassword, userdbpassword);
 
-    //to remove sensitive info from the response
-    const sanitizedUser = {
-      id: req.user.id,
-      username: req.user.username,
-      email: req.user.email,
-      gender: req.user.gender,
-      userimage: req.user.userimage,
-    };
     if (match) {
-      res.status(200).json(sanitizedUser);
+      const userData = user.rows[0];
+
+      // Sanitize sensitive data
+      const sanitizedUser = {
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        gender: userData.gender,
+        image: userData.userimage,
+      };
+
+      return res.status(200).json(sanitizedUser);
     } else {
-      res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid password" });
     }
   } catch (error) {
     if (error.message.includes("id")) {
       return res
         .status(400)
-        .json({ error: "id is not valid, it should be a uuid" });
+        .json({ error: "ID is not valid, it should be a UUID" });
     } else {
-      return res.status(error.code || 500).json({ error: error.message });
+      return res.status(error.code || 500).json({ error: "An error occurred" });
     }
   }
 });

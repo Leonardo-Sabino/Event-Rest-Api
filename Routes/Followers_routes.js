@@ -5,7 +5,7 @@ const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const { Expo } = require("expo-server-sdk");
 const json = require("body-parser/lib/types/json");
-const pool = require("../pool");
+const pool = require("../db/pool");
 
 // Middlewares
 router.use(bodyParser.json());
