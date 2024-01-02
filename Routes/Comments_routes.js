@@ -1,30 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const { Expo } = require("expo-server-sdk");
 const pool = require("../db/pool");
+const authenticationToken = require("../middelware");
 
 // Middlewares
 router.use(bodyParser.json());
 
-// GET method
-router.get("/comments", async (req, res) => {
-  try {
-    const client = await pool.connect();
-    const result = await client.query("SELECT * FROM comments");
-    const comments = result.rows;
-    client.release();
-    res.json(comments);
-  } catch (error) {
-    console.error("Error fetching comments:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 // get event comements by id
-router.get("/comments/:eventId", async (req, res) => {
+router.get("/comments/:id", async (req, res) => {
   const eventId = req.params.eventId;
 
   try {
@@ -114,8 +100,36 @@ const sendPushNotification = async (
 };
 
 // to post a comment
-router.post("/comments", async (req, res) => {
-  const { userId, eventId, username, eventName, comment } = req.body;
+router.post("/comment/event/:id", authenticationToken, async (req, res) => {
+  const client = await pool.connect();
+  const eventId = req.params.id;
+  const userId = req.user.id;
+  const { comment } = req.body;
+
+  const userQueryResult = await client.query(
+    `SELECT * FROM users WHERE id = $1`,
+    [userId]
+  );
+  const eventQueryResult = await client.query(
+    `SELECT * FROM events WHERE id = $1`,
+    [eventId]
+  );
+
+  const username = userQueryResult.rows[0]?.username;
+  const eventName = eventQueryResult.rows[0]?.name;
+
+  if (!eventQueryResult.rows[0]) {
+    return res.status(404).json({ error: "Event not found" });
+  }
+
+  if (comment && typeof comment !== "string") {
+    return res.status(400).json({ error: "The comment should be a string" });
+  }
+
+  if (!comment || (comment && comment.trim() === "")) {
+    return res.status(400).json({ error: "The comment is required" });
+  }
+
   const [id, date, notification_id] = [uuidv4(), new Date(), uuidv4()];
 
   const newComment = {
@@ -129,17 +143,11 @@ router.post("/comments", async (req, res) => {
   };
 
   try {
-    const client = await pool.connect();
-
-    // Salvar o comentário no banco de dados
-    const commentResult = await client.query(
+    await client.query(
       "INSERT INTO comments (id, userid, eventid, eventname, comment, createdat, notification_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
       [id, userId, eventId, eventName, comment, date, notification_id]
     );
 
-    const savedComment = commentResult.rows[0];
-
-    // Obter os detalhes do evento associado ao eventId para obter o id do user que criou o evento
     const eventResult = await client.query(
       "SELECT userid FROM events WHERE id = $1",
       [eventId]
@@ -147,7 +155,6 @@ router.post("/comments", async (req, res) => {
 
     const eventDetails = eventResult.rows[0];
 
-    // Obter os detalhes do token associado ao userId para enviar a notificação
     const tokenResult = await client.query(
       "SELECT tokendevice FROM users WHERE id = $1",
       [eventDetails.userid]
@@ -158,7 +165,7 @@ router.post("/comments", async (req, res) => {
     //webSocket connnection
     websocketServer.emit("newComment", { ...newComment }); // Emit the "newComment" event to notify all connected clients about the new comment added
 
-    // Enviar notificação se o usuário que comentou no evento for diferente do creatorUserId e se o token device existir
+    //send notification
     if (
       userId !== eventDetails.userid &&
       tokenDetails &&
@@ -166,9 +173,7 @@ router.post("/comments", async (req, res) => {
     ) {
       const message = `${username} comentou no seu evento ${eventName}: "${comment}"`;
       const title = "Novo comentário";
-      console.log("Message:", message);
 
-      // Enviar a notificação push usando o Expo
       sendPushNotification(
         tokenDetails.tokendevice,
         message,
@@ -180,55 +185,58 @@ router.post("/comments", async (req, res) => {
         notification_id
       );
     }
-
-    client.release();
-
-    // Enviar a resposta com o novo comentário
-    // res.status(201).json(savedComment)
-    //res without body
-    res.status(204).end();
+    res.status(201).json({
+      message: `Successfully commented on ${eventName}`,
+      id: id,
+      comment: comment,
+    });
   } catch (error) {
     console.error("Error adding comment:", error);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
   }
 });
+
 //to delete a comment
-router.delete("/comments/:commentId", async (req, res) => {
-  const commentId = req.params.commentId;
-  const userId = req.body.userId; // ID do usuário passado no corpo da solicitação
+router.delete("/comment/:id", authenticationToken, async (req, res) => {
+  const client = await pool.connect();
+
+  const commentId = req.params.id;
+  const userId = req.user.id;
 
   try {
-    const client = await pool.connect();
-
-    // Verifique se o comentário existe e se o usuário é o autor do comentário
     const commentExists = await client.query(
       "SELECT * FROM comments WHERE id = $1 AND userId = $2",
       [commentId, userId]
     );
 
     if (commentExists.rows.length === 0) {
-      // Comentário não encontrado ou usuário não é o autor
-      client.release();
-      return res.status(404).json({ error: "Comentário não encontrado" });
+      return res.status(404).json({ error: "Comment not found!" });
     }
 
-    // Excluding the comentary
-    await client.query("DELETE FROM comments WHERE id = $1", [commentId]);
+    const eventId = commentExists.rows[0]?.eventid;
+
+    // query to remove the comment from db
+    await client.query("DELETE FROM comments WHERE id = $1 AND eventId = $2", [
+      commentId,
+      eventId,
+    ]);
 
     // notify the other users
     websocketServer.emit("deleteComment", { id: commentId, userId });
 
-    client.release();
-
-    res.status(204).end(); // response without body
+    res.status(200).json({ message: "Comment successfully deleted!" });
   } catch (error) {
     console.error("Error deleting comment:", error);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
   }
 });
 
 //for the liked comments
-router.get("/comment/likes", async (req, res) => {
+router.get("/comment/likes", authenticationToken, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -243,14 +251,14 @@ router.get("/comment/likes", async (req, res) => {
     console.log("Error fecthing comment likes:", error);
     res.status(500).json({ error: "Internal error occurred!" });
   } finally {
-    client.release(); // Release the client connection in a finally block
+    client.release();
   }
 });
 
-router.post("/comment/likes/:id", async (req, res) => {
+router.post("/comment/likes/:id", authenticationToken, async (req, res) => {
   const commentId = req.params.id;
   const eventId = req.body.eventId;
-  const userId = req.body.userId;
+  const userId = req.user.id;
 
   const client = await pool.connect();
 
@@ -280,10 +288,10 @@ router.post("/comment/likes/:id", async (req, res) => {
   }
 });
 
-router.delete("/comment/likes/:id", async (req, res) => {
+router.delete("/comment/likes/:id", authenticationToken, async (req, res) => {
   const commentId = req.params.id;
   const eventId = req.body.eventId;
-  const userId = req.body.userId;
+  const userId = req.user.id;
 
   const client = await pool.connect();
 

@@ -102,8 +102,16 @@ router.put("/users/me", authenticationToken, async (req, res) => {
         updatedUser.userimage,
       ]
     );
+    const sanitizedData = {
+      username: updatedUser.username,
+      email: updatedUser.email,
+      userimage: updatedUser.userimage,
+    };
     if (result.rowCount === 1) {
-      res.json({ message: "User successfully updated!" });
+      res.json({
+        message: "User successfully updated!",
+        newData: sanitizedData,
+      });
       websocketServer.emit("userUpdate", { userId, ...updatedUser }); // Emit the "userUpdate" event to notify all connected clients about the new user
     } else {
       res.status(404).json({ message: "User not found!" });

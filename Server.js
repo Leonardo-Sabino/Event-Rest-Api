@@ -102,10 +102,9 @@ app.delete("/users/me", usersRouter);
 app.post("/tokenDevice/me", usersRouter);
 
 //for the comments
-app.get("/comments/:eventId", commentsRouter);
-app.get("/comments", commentsRouter);
-app.post("/comments", commentsRouter);
-app.delete("/comments/:commentId", commentsRouter);
+app.get("/comments/:id", commentsRouter);
+app.post("/comment/event/:id", commentsRouter);
+app.delete("/comment/:id", commentsRouter);
 
 //for likes on comments
 app.get("/comment/likes", commentsRouter);

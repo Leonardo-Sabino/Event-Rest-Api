@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const { Pool } = require("pg");
 const bodyParser = require("body-parser");
 const { Expo } = require("expo-server-sdk");
 const json = require("body-parser/lib/types/json");
