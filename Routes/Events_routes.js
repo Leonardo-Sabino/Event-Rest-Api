@@ -9,7 +9,43 @@ const authenticationToken = require("../middelware");
 // Middlewares
 router.use(bodyParser.json());
 
-// Route to get all events
+/**
+ * @openapi
+ * /events:
+ *   get:
+ *     tags:
+ *      - Events
+ *     summary: Get all events
+ *     requestBody:
+ *       required: true
+ *     description: Retrieve a list of all events
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     content:
+ *        application/json:
+ *          schema:
+ *            $ref: './schemas/CreateUserInput'
+ *     responses:
+ *       200:
+ *         description: A list of events
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: './schemas/CreateUserInput'
+ */
 router.get("/events", authenticationToken, async (req, res) => {
   const {
     page = 1,

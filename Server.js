@@ -15,6 +15,7 @@ const notificationsRouter = require("./Routes/Notifications_routes");
 const followersRouter = require("./Routes/Followers_routes");
 const peopleGoingRouter = require("./Routes/PeopleGoing_routes");
 const authRouter = require("./Routes/Auth");
+const swaggerDocs = require("./utiliz/swagger/swagger-config");
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -128,4 +129,5 @@ app.delete("/going/:id", peopleGoingRouter);
 
 server.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
+  swaggerDocs(app, port);
 });
