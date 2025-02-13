@@ -2,8 +2,8 @@ Events Api developed with nodejs.
 
 🚀 Installation
 Clone the repository:
-  - git clone https://github.com/your-username/your-repo.git
-  - cd your-repo
+  - git clone https://github.com/Leonardo-Sabino/Event-Rest-Api.git
+  - cd Event-Rest-Api
 
 Install dependencies:
   - npm install
