@@ -22,7 +22,7 @@ Start the application:
 ✅ API documentation with Swagger
 
 🛠️ Technologies
-Node.js (NestJS)
+Node.js
 PostgreSQL
 JWT Authentication
 Swagger (API Docs)
