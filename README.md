@@ -29,7 +29,7 @@ Swagger (API Docs)
 
 📝 API Documentation
 After starting the server, access:
-📌 Swagger UI: http://localhost:3000/api
+📌 Swagger UI: http://localhost:${port}/docs
 
 🤝 Contributing
 Feel free to submit issues or pull requests! 🚀
