@@ -13,7 +13,9 @@ Create an .env file based on .env.example:
     
 Start the application:
   - npm run start
-
+    
+Postgresql
+ - Make sure you have Postgresql installed on your machine.
 
 📌 Features
 ✅ Create, update, and manage events
